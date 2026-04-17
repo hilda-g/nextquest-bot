@@ -186,7 +186,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # Уже выбирал роль раньше — показываем нужное меню
     if db_user.get("onboarded"):
-        return await _show_main_menu(update, db_user["role"])
+        return await _show_main_menu(update.message, db_user["role"])
 
     # Первый запуск — спрашиваем кто ты (UC-7.1)
     await update.message.reply_text(
