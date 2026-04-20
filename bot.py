@@ -67,7 +67,9 @@ REJECT_REASONS = [
     REJECT_CUSTOM,
     # Moderator edit wizard states
     MOD_EDIT_FIELD, MOD_EDIT_VALUE,
-) = range(22)
+    # Organizer preview inline-edit states
+    EV_EDIT_FIELD, EV_EDIT_VALUE,
+) = range(24)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -1116,63 +1118,75 @@ async def ev_get_url(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     txt = update.message.text.strip()
     if txt != "-":
         ctx.user_data["new_event"]["external_url"] = txt
+    else:
+        ctx.user_data["new_event"].pop("external_url", None)
 
     ev = ctx.user_data["new_event"]
     ev["organizer_tg_id"] = update.effective_user.id
-    ev["status"]          = "pending"
     await _save_draft(ctx)
 
-    # Шаг 5 — превью
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("📤 Отправить на модерацию", callback_data="ev_submit"),
-        InlineKeyboardButton("✏️ Изменить",               callback_data="ev_edit"),
-        InlineKeyboardButton("🗑 Отмена",                  callback_data="ev_cancel"),
-    ]])
-    cover = ev.get("cover_file_id") or ev.get("cover_image_url")
-    caption = f"Шаг 5/5: *Превью*\n\n{event_card_text(ev)}\n\nВсё верно?"
-    try:
-        if cover:
-            await update.message.reply_photo(cover, caption=caption, reply_markup=keyboard, parse_mode="Markdown")
-            return ConversationHandler.END
-    except Exception:
-        pass
-    await update.message.reply_text(caption, reply_markup=keyboard, parse_mode="Markdown")
-    return ConversationHandler.END
+    # Show step-5 preview — stay in EV_EDIT_FIELD so wizard catches submit/edit/cancel
+    return await _show_preview(update.message, ev)
 
 async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     if query.data == "ev_cancel":
-        # Удаляем черновик
         if ctx.user_data.get("draft_id"):
             supabase.table("events").delete().eq("id", ctx.user_data["draft_id"]).execute()
         ctx.user_data.pop("new_event", None)
         ctx.user_data.pop("draft_id", None)
-        return await query.message.reply_text("❌ Отменено.")
+        await query.message.reply_text("❌ Создание события отменено.")
+        return ConversationHandler.END
 
     if query.data == "ev_edit":
-        ctx.user_data.pop("new_event", None)
-        await query.message.reply_text("Начинаем заново. Используй /new_event")
-        return
+        # Show field picker — don't restart from scratch
+        ev = ctx.user_data.get("new_event", {})
+        if not ev:
+            await query.message.reply_text("❌ Сессия истекла. Попробуй /new_event снова.")
+            return ConversationHandler.END
+        await query.message.reply_text(
+            "✏️ Что хочешь исправить?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📝 Название",    callback_data="evf:title"),
+                 InlineKeyboardButton("📄 Описание",    callback_data="evf:description")],
+                [InlineKeyboardButton("🎲 Категория",   callback_data="evf:category"),
+                 InlineKeyboardButton("📍 Город",       callback_data="evf:location_city")],
+                [InlineKeyboardButton("🏠 Адрес",       callback_data="evf:location_address"),
+                 InlineKeyboardButton("👥 Лимит",       callback_data="evf:max_participants")],
+                [InlineKeyboardButton("🗓 Дата начала", callback_data="evf:date_start"),
+                 InlineKeyboardButton("🗓 Дата конца",  callback_data="evf:date_end")],
+                [InlineKeyboardButton("🔗 Ссылка рег.", callback_data="evf:external_url"),
+                 InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
+                [InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
+            ])
+        )
+        return EV_EDIT_FIELD
 
+    # ev_submit — save and notify moderator
     ev = ctx.user_data.get("new_event", {})
     if not ev:
-        return await query.message.reply_text("❌ Сессия истекла. Попробуй /new_event снова.")
+        await query.message.reply_text("❌ Сессия истекла. Попробуй /new_event снова.")
+        return ConversationHandler.END
 
-    # Обновляем статус черновика или создаём новую запись
     draft_id = ctx.user_data.pop("draft_id", None)
-    if draft_id:
-        supabase.table("events").update({**ev, "status": "pending"}).eq("id", draft_id).execute()
-        event_id = draft_id
-    else:
-        res = supabase.table("events").insert({**ev, "status": "pending"}).execute()
-        event_id = res.data[0]["id"]
+    try:
+        if draft_id:
+            supabase.table("events").update({**ev, "status": "pending"}).eq("id", draft_id).execute()
+            event_id = draft_id
+        else:
+            res = supabase.table("events").insert({**ev, "status": "pending"}).execute()
+            event_id = res.data[0]["id"]
+    except Exception as e:
+        logger.error(f"Failed to save event to Supabase: {e}")
+        await query.message.reply_text("❌ Ошибка сохранения. Попробуй ещё раз.")
+        return ConversationHandler.END
 
     ctx.user_data.pop("new_event", None)
-    await query.message.reply_text(f"✅ Событие отправлено на модерацию!")
+    await query.message.reply_text("✅ Событие отправлено на модерацию!")
 
-    # Модератор получает карточку с кнопками сразу (UC-01, FIX 3)
+    # Notify moderator
     ev_with_id = {**ev, "id": event_id}
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Опубликовать", callback_data=f"approve:{event_id}"),
@@ -1180,14 +1194,164 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("❌ Отклонить",    callback_data=f"reject:{event_id}"),
     ]])
     cover = ev.get("cover_file_id") or ev.get("cover_image_url")
-    text  = f"📬 Новое событие на апруве!\n\n{event_card_text(ev_with_id)}"
+    organizer = query.from_user
+    org_name = f"@{organizer.username}" if organizer.username else organizer.full_name
+    text = (
+        f"📬 *Новое событие на апруве!*\n"
+        f"От: {org_name} (ID: {organizer.id})\n\n"
+        f"{event_card_text(ev_with_id)}"
+    )
     try:
         if cover:
-            await ctx.bot.send_photo(MODERATOR_ID, cover, caption=text, reply_markup=keyboard, parse_mode="Markdown")
+            await ctx.bot.send_photo(
+                MODERATOR_ID, cover,
+                caption=text, reply_markup=keyboard, parse_mode="Markdown"
+            )
         else:
-            await ctx.bot.send_message(MODERATOR_ID, text, reply_markup=keyboard, parse_mode="Markdown")
+            await ctx.bot.send_message(
+                MODERATOR_ID, text,
+                reply_markup=keyboard, parse_mode="Markdown"
+            )
+        logger.info(f"Moderator notification sent for event {event_id} to {MODERATOR_ID}")
     except Exception as e:
-        logger.warning(f"Cannot notify moderator: {e}")
+        logger.error(f"FAILED to notify moderator {MODERATOR_ID} for event {event_id}: {e}")
+
+    return ConversationHandler.END
+
+
+# ─── Inline preview edit (organizer corrects before submitting) ──
+
+async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle field selection in the preview edit picker."""
+    query = update.callback_query
+    await query.answer()
+    field = query.data.split(":")[1]
+
+    if field == "done":
+        # Return to preview
+        ev = ctx.user_data.get("new_event", {})
+        if not ev:
+            await query.message.reply_text("❌ Сессия истекла. Начни заново: /new_event")
+            return ConversationHandler.END
+        return await _show_preview(query.message, ev)
+
+    ctx.user_data["ev_editing_field"] = field
+
+    if field == "category":
+        buttons = [[InlineKeyboardButton(lbl, callback_data=f"evv:{cat_id}")]
+                   for cat_id, lbl in CATEGORIES.items()]
+        await query.message.reply_text("Выбери категорию:", reply_markup=InlineKeyboardMarkup(buttons))
+        return EV_EDIT_VALUE
+
+    if field == "max_participants":
+        await query.message.reply_text(
+            "Новый лимит участников:",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("10",         callback_data="evv:10"),
+                InlineKeyboardButton("20",         callback_data="evv:20"),
+                InlineKeyboardButton("50",         callback_data="evv:50"),
+                InlineKeyboardButton("Без лимита", callback_data="evv:0"),
+            ]])
+        )
+        return EV_EDIT_VALUE
+
+    if field == "location_city":
+        buttons = [[InlineKeyboardButton(c, callback_data=f"evv:{c}")]
+                   for c in ["Nicosia", "Limassol", "Larnaca", "Paphos", "Other"]]
+        await query.message.reply_text("Выбери город:", reply_markup=InlineKeyboardMarkup(buttons))
+        return EV_EDIT_VALUE
+
+    prompts = {
+        "title":            "Новое название:",
+        "description":      "Новое описание:",
+        "location_address": "Новый адрес:",
+        "date_start":       "Новая дата начала (YYYY-MM-DD HH:MM):",
+        "date_end":         "Новая дата конца (YYYY-MM-DD HH:MM) или `-` чтобы убрать:",
+        "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
+        "cover_image_url":  "Новая обложка — ссылка (https://...) или отправь фото:",
+    }
+    await query.message.reply_text(prompts.get(field, f"Новое значение для {field}:"))
+    return EV_EDIT_VALUE
+
+
+async def ev_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle button-based field values (category, city, limit)."""
+    query = update.callback_query
+    await query.answer()
+    field = ctx.user_data.get("ev_editing_field")
+    raw   = query.data.split(":")[1]
+
+    if field == "max_participants":
+        val = int(raw)
+        ctx.user_data["new_event"][field] = val if val > 0 else None
+    elif field == "category":
+        ctx.user_data["new_event"][field] = raw
+    else:
+        ctx.user_data["new_event"][field] = raw
+
+    ctx.user_data.pop("ev_editing_field", None)
+    ev = ctx.user_data["new_event"]
+    await _save_draft(ctx)
+    return await _show_preview(query.message, ev)
+
+
+async def ev_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle text/photo field values."""
+    field = ctx.user_data.get("ev_editing_field")
+    if not field:
+        return EV_EDIT_VALUE
+
+    # Photo upload for cover
+    if field == "cover_image_url" and update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        ctx.user_data["new_event"]["cover_image_url"] = file_id
+        ctx.user_data["new_event"]["cover_file_id"]   = file_id
+        ctx.user_data.pop("ev_editing_field", None)
+        await _save_draft(ctx)
+        return await _show_preview(update.message, ctx.user_data["new_event"])
+
+    raw = update.message.text.strip() if update.message.text else None
+    if raw is None:
+        await update.message.reply_text("❌ Отправь текст или фото.")
+        return EV_EDIT_VALUE
+
+    if field in ("date_start", "date_end"):
+        if raw == "-":
+            ctx.user_data["new_event"][field] = None
+        else:
+            try:
+                dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
+                ctx.user_data["new_event"][field] = dt.isoformat()
+            except ValueError:
+                await update.message.reply_text("❌ Формат: YYYY-MM-DD HH:MM (например 2026-06-15 18:00)")
+                return EV_EDIT_VALUE
+    elif raw == "-":
+        ctx.user_data["new_event"][field] = None
+    else:
+        ctx.user_data["new_event"][field] = raw
+
+    ctx.user_data.pop("ev_editing_field", None)
+    await _save_draft(ctx)
+    return await _show_preview(update.message, ctx.user_data["new_event"])
+
+
+async def _show_preview(message, ev: dict):
+    """Re-render the step-5 preview card with fresh data."""
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("📤 Отправить на модерацию", callback_data="ev_submit"),
+        InlineKeyboardButton("✏️ Исправить ещё",          callback_data="ev_edit"),
+        InlineKeyboardButton("🗑 Отмена",                  callback_data="ev_cancel"),
+    ]])
+    caption = f"Шаг 5/5: *Превью* (обновлено)\n\n{event_card_text(ev)}\n\nВсё верно?"
+    cover = ev.get("cover_file_id") or ev.get("cover_image_url")
+    try:
+        if cover:
+            await message.reply_photo(cover, caption=caption, reply_markup=keyboard, parse_mode="Markdown")
+            return EV_EDIT_FIELD
+    except Exception:
+        pass
+    await message.reply_text(caption, reply_markup=keyboard, parse_mode="Markdown")
+    return EV_EDIT_FIELD
 
 async def _save_draft(ctx):
     """Сохраняет или обновляет черновик в БД."""
@@ -1604,6 +1768,20 @@ def build_application() -> Application:
             EV_DESC:       [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
             EV_PHOTO:      [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
             EV_URL:        [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_url)],
+            # Preview stage — submit / edit / cancel
+            ConversationHandler.END: [
+                CallbackQueryHandler(ev_submit_callback, pattern="^ev_(submit|cancel|edit)$"),
+            ],
+            # Inline field picker
+            EV_EDIT_FIELD: [
+                CallbackQueryHandler(ev_submit_callback,    pattern="^ev_(submit|cancel|edit)$"),
+                CallbackQueryHandler(ev_edit_field,         pattern="^evf:"),
+            ],
+            EV_EDIT_VALUE: [
+                CallbackQueryHandler(ev_edit_value_callback, pattern="^evv:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ev_edit_value_text),
+                MessageHandler(filters.PHOTO,                   ev_edit_value_text),
+            ],
         },
         fallbacks=[CommandHandler("cancel", lambda u, c: (
             u.message.reply_text("Отменено. Черновик сохранён — продолжи через /new_event"),
@@ -1660,7 +1838,6 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(handle_share_callback,             pattern="^share:"))
     app.add_handler(CallbackQueryHandler(handle_feedback_callback,          pattern="^fb:"))
     app.add_handler(CallbackQueryHandler(handle_ev_status_callback,         pattern="^ev_status:"))
-    app.add_handler(CallbackQueryHandler(ev_submit_callback,                pattern="^ev_(submit|cancel|edit)$"))
     app.add_handler(CallbackQueryHandler(handle_subev_callback,             pattern="^subev:"))
     app.add_handler(CallbackQueryHandler(handle_unsub_ev_callback,          pattern="^unsub_ev:"))
     app.add_handler(CallbackQueryHandler(handle_subcat_callback,            pattern="^subcat:"))
