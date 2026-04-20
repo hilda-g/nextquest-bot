@@ -205,11 +205,14 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     choice = query.data.split(":")[1]
     tg_id  = query.from_user.id
 
-    if choice == "organizer":
+    if choice == "participant":
+        # Participant button → always show participant menu, regardless of DB role
+        await _show_main_menu(query.message, "participant")
+    else:
+        # Organizer button → check actual DB role
         db_user = get_user(tg_id)
         actual_role = db_user["role"] if db_user else "participant"
         if actual_role not in ("organizer", "moderator"):
-            # Не верифицирован — показываем подсказку и меню участника
             await query.message.reply_text(
                 "🎪 Чтобы добавлять события, нужна верификация модератором.\n\n"
                 "Отправь запрос командой /request\\_organizer",
@@ -218,10 +221,6 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await _show_main_menu(query.message, "participant")
         else:
             await _show_main_menu(query.message, actual_role)
-    else:
-        db_user = get_user(tg_id)
-        actual_role = db_user["role"] if db_user else "participant"
-        await _show_main_menu(query.message, actual_role)
 
 async def _show_main_menu(message, role: str):
     if role in ("organizer", "moderator"):
@@ -251,11 +250,12 @@ async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     fake = query.message
 
     if action == "new_event":
-        ctx.user_data["new_event"] = {}
+        # Guard check — wizard entry point will do the real work.
+        # This handler just blocks unverified users early.
         if not is_organizer(query.from_user.id):
             return await fake.reply_text("⛔ Нужна верификация организатора. Отправь /request_organizer")
-        await _ask_category(fake)
-        return EV_CATEGORY
+        # Falls through to the ConversationHandler entry point below (menu:new_event)
+        # Nothing to return here — the wizard entry point picks it up
     elif action == "my_events":
         await _show_my_events(fake, query.from_user.id, ctx)
     elif action == "feedback":
@@ -867,32 +867,68 @@ async def cmd_add_organizer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ─── Wizard: новое событие (UC-04, 5 шагов) ─────────────────
 
-async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    get_or_create_user(user.id, user.username)
+async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Entry point for the new-event wizard triggered via the menu button."""
+    query = update.callback_query
+    await query.answer()
+    if not is_organizer(query.from_user.id):
+        await query.message.reply_text("⛔ Нужна верификация организатора. Отправь /request_organizer")
+        return ConversationHandler.END
 
-    if not is_organizer(user.id):
-        return await update.message.reply_text(
-            "⛔ Нужна верификация.\nОтправь /request\\_organizer чтобы запросить роль организатора.",
-            parse_mode="Markdown"
-        )
+    ctx.user_data["new_event"] = {}
+    ctx.user_data.pop("draft_id", None)
 
-    # Восстанавливаем черновик если есть
+    # Check for existing draft
+    user_id = query.from_user.id
     draft = supabase.table("events").select("*")\
-            .eq("organizer_tg_id", user.id).eq("status", "draft").order("created_at", desc=True).limit(1).execute()
+            .eq("organizer_tg_id", user_id).eq("status", "draft")\
+            .order("created_at", desc=True).limit(1).execute()
     if draft.data:
         ev = draft.data[0]
-        await update.message.reply_text(
-            f"У тебя есть незавершённый черновик: *{ev.get('title', '(без названия)')}*\nПродолжить или начать заново?",
+        await query.message.reply_text(
+            f"У тебя есть незавершённый черновик: *{ev.get('title', '(без названия)')}*\n"
+            f"Продолжить или начать заново?",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("▶️ Продолжить", callback_data=f"draft_continue:{ev['id']}"),
+                InlineKeyboardButton("▶️ Продолжить",   callback_data=f"draft_continue:{ev['id']}"),
                 InlineKeyboardButton("🗑 Начать заново", callback_data="draft_new"),
             ]]),
             parse_mode="Markdown"
         )
         return EV_CATEGORY
 
+    return await _ask_category(query.message)
+
+async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    get_or_create_user(user.id, user.username)
+
+    if not is_organizer(user.id):
+        await update.message.reply_text(
+            "⛔ Нужна верификация.\nОтправь /request\\_organizer чтобы запросить роль организатора.",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
+
     ctx.user_data["new_event"] = {}
+    ctx.user_data.pop("draft_id", None)
+
+    # Restore draft if exists
+    draft = supabase.table("events").select("*")\
+            .eq("organizer_tg_id", user.id).eq("status", "draft")\
+            .order("created_at", desc=True).limit(1).execute()
+    if draft.data:
+        ev = draft.data[0]
+        await update.message.reply_text(
+            f"У тебя есть незавершённый черновик: *{ev.get('title', '(без названия)')}*\n"
+            f"Продолжить или начать заново?",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("▶️ Продолжить",   callback_data=f"draft_continue:{ev['id']}"),
+                InlineKeyboardButton("🗑 Начать заново", callback_data="draft_new"),
+            ]]),
+            parse_mode="Markdown"
+        )
+        return EV_CATEGORY
+
     return await _ask_category(update.message)
 
 async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -920,7 +956,10 @@ async def _ask_category(message) -> int:
 # Шаг 1 — категория
 async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
+    if "new_event" not in ctx.user_data:
+        ctx.user_data["new_event"] = {}
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
+    ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
     await _save_draft(ctx)
     await q.message.reply_text(
         "Шаг 2/5: *Дата и время начала*\n\nВыбери год:",
@@ -1542,7 +1581,8 @@ def build_application() -> Application:
     wizard = ConversationHandler(
         entry_points=[
             CommandHandler("new_event", cmd_new_event),
-            CallbackQueryHandler(handle_draft_choice, pattern="^draft_(continue|new)"),
+            CallbackQueryHandler(wizard_start_from_menu, pattern="^menu:new_event$"),
+            CallbackQueryHandler(handle_draft_choice,    pattern="^draft_(continue|new)"),
         ],
         states={
             EV_CATEGORY:   [CallbackQueryHandler(ev_get_category, pattern="^cat:")],
@@ -1611,7 +1651,7 @@ def build_application() -> Application:
 
     # Callbacks
     app.add_handler(CallbackQueryHandler(handle_onboard,                    pattern="^onboard:"))
-    app.add_handler(CallbackQueryHandler(handle_menu,                       pattern="^menu:"))
+    app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:(?!new_event)"))
     app.add_handler(CallbackQueryHandler(handle_admin_menu,                 pattern="^admin:"))
     app.add_handler(CallbackQueryHandler(handle_moderation_callback,        pattern="^(approve|reject|request_edits):"))
     app.add_handler(CallbackQueryHandler(handle_reject_reason_button,       pattern="^reason:"))
