@@ -1,6 +1,9 @@
 """
-NextQuest Telegram Bot — v0.4
-Соответствует спеке nextquest_spec_v04.docx
+NextQuest Telegram Bot — v0.5
+Соответствует nextquest_spec_v04.docx + фиксы:
+  - /start всегда показывает приветствие с выбором роли
+  - Модератор: удаление и редактирование событий из бота
+  - Изменения автоматически отражаются на nextquest.today (через Supabase)
 
 python-telegram-bot==21.5
 supabase==2.9.1
@@ -30,7 +33,7 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 MODERATOR_ID = int(os.environ["MODERATOR_TG_ID"])
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "nextquest_bot")
-SITE_URL     = os.environ.get("SITE_URL", "https://nextquest.cy")
+SITE_URL     = os.environ.get("SITE_URL", "https://nextquest.today")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -62,7 +65,9 @@ REJECT_REASONS = [
     EV_TITLE, EV_DESC, EV_PHOTO,
     EV_URL,
     REJECT_CUSTOM,
-) = range(20)
+    # Moderator edit wizard states
+    MOD_EDIT_FIELD, MOD_EDIT_VALUE,
+) = range(22)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -177,22 +182,18 @@ async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_r
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    db_user = get_or_create_user(user.id, user.username)
+    get_or_create_user(user.id, user.username)
 
     # Deep-link: /start event_123
     if ctx.args and ctx.args[0].startswith("event_"):
         event_id = ctx.args[0].split("_")[1]
         return await _show_event_deeplink(update, ctx, event_id)
 
-    # Уже выбирал роль раньше — показываем нужное меню
-    if db_user.get("onboarded"):
-        return await _show_main_menu(update.message, db_user["role"])
-
-    # Первый запуск — спрашиваем кто ты (UC-7.1)
+    # Всегда показываем приветствие с выбором роли
     await update.message.reply_text(
         "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nКто ты?",
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🎲 Участник — ищу события",     callback_data="onboard:participant"),
+            InlineKeyboardButton("🎲 Участник — ищу события",        callback_data="onboard:participant"),
             InlineKeyboardButton("🎪 Организатор — добавляю события", callback_data="onboard:organizer"),
         ]]),
         parse_mode="Markdown"
@@ -205,19 +206,22 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     tg_id  = query.from_user.id
 
     if choice == "organizer":
-        # Организатор — нужна верификация модератором
-        supabase.table("users").update({"onboarded": True}).eq("tg_id", tg_id).execute()
-        await query.message.reply_text(
-            "🎪 Отлично! Чтобы добавлять события, нужна верификация.\n\n"
-            "Отправь запрос модератору командой /request\\_organizer",
-            parse_mode="Markdown"
-        )
-        # Показываем меню участника пока не верифицирован
         db_user = get_user(tg_id)
-        await _show_main_menu(query.message, db_user["role"])
+        actual_role = db_user["role"] if db_user else "participant"
+        if actual_role not in ("organizer", "moderator"):
+            # Не верифицирован — показываем подсказку и меню участника
+            await query.message.reply_text(
+                "🎪 Чтобы добавлять события, нужна верификация модератором.\n\n"
+                "Отправь запрос командой /request\\_organizer",
+                parse_mode="Markdown"
+            )
+            await _show_main_menu(query.message, "participant")
+        else:
+            await _show_main_menu(query.message, actual_role)
     else:
-        supabase.table("users").update({"onboarded": True}).eq("tg_id", tg_id).execute()
-        await _show_main_menu(query.message, "participant")
+        db_user = get_user(tg_id)
+        actual_role = db_user["role"] if db_user else "participant"
+        await _show_main_menu(query.message, actual_role)
 
 async def _show_main_menu(message, role: str):
     if role in ("organizer", "moderator"):
@@ -345,9 +349,10 @@ async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👑 Панель модератора",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📋 Очередь на апрув",  callback_data="admin:pending")],
-            [InlineKeyboardButton("📊 Статистика",         callback_data="admin:stats")],
-            [InlineKeyboardButton("➕ Добавить организатора", callback_data="admin:add_org_prompt")],
+            [InlineKeyboardButton("📋 Очередь на апрув",      callback_data="admin:pending")],
+            [InlineKeyboardButton("🗂 Управление событиями",   callback_data="admin:manage_events")],
+            [InlineKeyboardButton("📊 Статистика",             callback_data="admin:stats")],
+            [InlineKeyboardButton("➕ Добавить организатора",   callback_data="admin:add_org_prompt")],
         ])
     )
 
@@ -363,6 +368,8 @@ async def handle_admin_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _show_stats(query.message)
     elif action == "add_org_prompt":
         await query.message.reply_text("Отправь: /add_organizer @username")
+    elif action == "manage_events":
+        await _show_mod_events(query.message)
 
 
 async def _show_stats(message):
@@ -394,6 +401,296 @@ async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         return
     await _show_stats(update.message)
+
+
+# ─── Управление событиями модератором ────────────────────────
+
+async def _show_mod_events(message, offset: int = 0):
+    """Показывает список всех published/pending событий с кнопками Edit и Delete."""
+    res = supabase.table("events").select("*")\
+          .in_("status", ["published", "pending", "cancelled"])\
+          .order("date_start", desc=True)\
+          .range(offset, offset + 4).execute()
+
+    if not res.data:
+        return await message.reply_text("Событий не найдено.")
+
+    for ev in res.data:
+        icon = {"published": "✅", "pending": "⏳", "cancelled": "❌"}.get(ev["status"], "?")
+        date = ev["date_start"][:10]
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✏️ Изменить", callback_data=f"mod_edit:{ev['id']}"),
+            InlineKeyboardButton("🗑 Удалить",   callback_data=f"mod_delete:{ev['id']}"),
+        ]])
+        await message.reply_text(
+            f"{icon} *{ev['title']}*\n"
+            f"{CATEGORIES.get(ev['category'], ev['category'])} · {ev['location_city']} · {date}",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+
+    # Пагинация
+    nav_buttons = []
+    if offset > 0:
+        nav_buttons.append(InlineKeyboardButton("◀️ Назад", callback_data=f"mod_page:{offset - 5}"))
+    if len(res.data) == 5:
+        nav_buttons.append(InlineKeyboardButton("Вперёд ▶️", callback_data=f"mod_page:{offset + 5}"))
+    if nav_buttons:
+        await message.reply_text("Навигация:", reply_markup=InlineKeyboardMarkup([nav_buttons]))
+
+
+async def handle_mod_page(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+    offset = int(query.data.split(":")[1])
+    await _show_mod_events(query.message, offset)
+
+
+# ─── Удаление события модератором ────────────────────────────
+
+async def handle_mod_delete(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Запрашивает подтверждение удаления события."""
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+    event_id = query.data.split(":")[1]
+    ev = supabase.table("events").select("id, title, status, organizer_tg_id").eq("id", event_id).single().execute().data
+    if not ev:
+        return await query.message.reply_text("❌ Событие не найдено.")
+
+    await query.message.reply_text(
+        f"⚠️ Удалить событие *{ev['title']}* (#{ev['id']}) из базы данных?\n\n"
+        f"Это действие нельзя отменить. Событие исчезнет с сайта немедленно.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🗑 Да, удалить",  callback_data=f"mod_delete_confirm:{event_id}"),
+            InlineKeyboardButton("❌ Отмена",        callback_data="mod_delete_cancel"),
+        ]]),
+        parse_mode="Markdown"
+    )
+
+
+async def handle_mod_delete_confirm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Выполняет удаление события из Supabase — сайт обновится автоматически."""
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+
+    if query.data == "mod_delete_cancel":
+        return await query.message.reply_text("Отменено.")
+
+    event_id = query.data.split(":")[1]
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+    if not ev:
+        return await query.message.reply_text("❌ Событие не найдено.")
+
+    title = ev["title"]
+
+    # Уведомляем подписчиков об отмене перед удалением
+    subs = supabase.table("subscriptions").select("tg_id").eq("event_id", event_id).execute()
+    for s in subs.data:
+        try:
+            await ctx.bot.send_message(
+                s["tg_id"],
+                f"❌ Событие *{title}* было удалено модератором.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    # Уведомляем организатора
+    try:
+        await ctx.bot.send_message(
+            ev["organizer_tg_id"],
+            f"❌ Твоё событие *{title}* было удалено модератором.",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+    # Удаляем подписки, логи и само событие из Supabase
+    # (сайт на nextquest.today читает данные из Supabase — обновится автоматически)
+    supabase.table("subscriptions").delete().eq("event_id", event_id).execute()
+    supabase.table("notification_log").delete().eq("event_id", event_id).execute()
+    supabase.table("events").delete().eq("id", event_id).execute()
+
+    await query.edit_message_reply_markup(None)
+    await query.message.reply_text(
+        f"✅ Событие *{title}* удалено.\n"
+        f"Сайт nextquest.today обновлён автоматически.",
+        parse_mode="Markdown"
+    )
+    logger.info(f"Moderator {query.from_user.id} deleted event {event_id} ({title})")
+
+
+# ─── Редактирование события модератором ──────────────────────
+
+async def handle_mod_edit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Показывает меню выбора поля для редактирования."""
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+    event_id = query.data.split(":")[1]
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+    if not ev:
+        return await query.message.reply_text("❌ Событие не найдено.")
+
+    ctx.user_data["mod_editing_event_id"] = event_id
+
+    await query.message.reply_text(
+        f"✏️ Редактируем: *{ev['title']}*\n\nЧто изменить?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📝 Название",     callback_data="mef:title"),
+             InlineKeyboardButton("📄 Описание",     callback_data="mef:description")],
+            [InlineKeyboardButton("📍 Город",        callback_data="mef:location_city"),
+             InlineKeyboardButton("🏠 Адрес",        callback_data="mef:location_address")],
+            [InlineKeyboardButton("🗓 Дата начала",  callback_data="mef:date_start"),
+             InlineKeyboardButton("🗓 Дата конца",   callback_data="mef:date_end")],
+            [InlineKeyboardButton("🎲 Категория",    callback_data="mef:category"),
+             InlineKeyboardButton("👥 Лимит",        callback_data="mef:max_participants")],
+            [InlineKeyboardButton("🔗 Ссылка рег.",  callback_data="mef:external_url"),
+             InlineKeyboardButton("🖼 Обложка",      callback_data="mef:cover_image_url")],
+            [InlineKeyboardButton("❌ Отмена",        callback_data="mef:cancel")],
+        ]),
+        parse_mode="Markdown"
+    )
+    return MOD_EDIT_FIELD
+
+
+FIELD_LABELS = {
+    "title":            "Новое название:",
+    "description":      "Новое описание:",
+    "location_city":    "Новый город:",
+    "location_address": "Новый адрес:",
+    "date_start":       "Новая дата начала (YYYY-MM-DD HH:MM):",
+    "date_end":         "Новая дата окончания (YYYY-MM-DD HH:MM) или `-` чтобы убрать:",
+    "max_participants": "Новый лимит участников (число или `-` без лимита):",
+    "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
+    "cover_image_url":  "Новая ссылка на обложку (https://...) или отправь фото:",
+    "category":         "Выбери категорию:",
+}
+
+
+async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор поля и запрашивает новое значение."""
+    query = update.callback_query
+    await query.answer()
+    field = query.data.split(":")[1]
+
+    if field == "cancel":
+        ctx.user_data.pop("mod_editing_event_id", None)
+        ctx.user_data.pop("mod_editing_field", None)
+        return await query.message.reply_text("Отменено.")
+
+    ctx.user_data["mod_editing_field"] = field
+    label = FIELD_LABELS.get(field, f"Новое значение для {field}:")
+
+    if field == "category":
+        buttons = [[InlineKeyboardButton(lbl, callback_data=f"mev:{cat_id}")]
+                   for cat_id, lbl in CATEGORIES.items()]
+        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        return MOD_EDIT_VALUE
+
+    await query.message.reply_text(label, parse_mode="Markdown")
+    return MOD_EDIT_VALUE
+
+
+async def handle_mod_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает выбор категории через кнопку."""
+    query = update.callback_query
+    await query.answer()
+    new_value = query.data.split(":")[1]
+    await _apply_mod_edit(ctx, "category", new_value, query.message)
+    return ConversationHandler.END
+
+
+async def handle_mod_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает текстовый ввод нового значения поля."""
+    field = ctx.user_data.get("mod_editing_field")
+    event_id = ctx.user_data.get("mod_editing_event_id")
+    if not field or not event_id:
+        return ConversationHandler.END
+
+    raw = update.message.text.strip() if update.message.text else None
+
+    # Фото для обложки
+    if field == "cover_image_url" and update.message.photo:
+        new_value = update.message.photo[-1].file_id
+        await _apply_mod_edit(ctx, field, new_value, update.message)
+        return ConversationHandler.END
+
+    if raw is None:
+        await update.message.reply_text("❌ Ожидается текст или фото.")
+        return MOD_EDIT_VALUE
+
+    # Нормализация значений
+    if raw == "-":
+        new_value = None
+    elif field in ("date_start", "date_end"):
+        try:
+            dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
+            new_value = dt.isoformat()
+        except ValueError:
+            await update.message.reply_text("❌ Неверный формат. Используй: YYYY-MM-DD HH:MM")
+            return MOD_EDIT_VALUE
+    elif field == "max_participants":
+        try:
+            new_value = int(raw)
+        except ValueError:
+            await update.message.reply_text("❌ Введи число или `-`.")
+            return MOD_EDIT_VALUE
+    else:
+        new_value = raw
+
+    await _apply_mod_edit(ctx, field, new_value, update.message)
+    return ConversationHandler.END
+
+
+async def _apply_mod_edit(ctx, field: str, new_value, message):
+    """Записывает изменение в Supabase и уведомляет подписчиков."""
+    event_id = ctx.user_data.pop("mod_editing_event_id", None)
+    ctx.user_data.pop("mod_editing_field", None)
+    if not event_id:
+        return await message.reply_text("❌ Сессия истекла.")
+
+    update_data = {field: new_value}
+    supabase.table("events").update(update_data).eq("id", event_id).execute()
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+
+    display = new_value if new_value is not None else "убрано"
+    await message.reply_text(
+        f"✅ Поле *{field}* обновлено → `{display}`\n\n"
+        f"Сайт nextquest.today обновлён автоматически.",
+        parse_mode="Markdown"
+    )
+
+    # Уведомляем подписчиков об изменении
+    subs = supabase.table("subscriptions").select("tg_id").eq("event_id", event_id).execute()
+    for s in subs.data:
+        try:
+            await ctx.bot.send_message(
+                s["tg_id"],
+                f"📝 Детали события *{ev['title']}* изменились!\n\n{event_card_text(ev)}",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    # Уведомляем организатора
+    try:
+        await ctx.bot.send_message(
+            ev["organizer_tg_id"],
+            f"📝 Модератор изменил событие *{ev['title']}*.\n\nПоле: {field}",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+    logger.info(f"Moderator edited event {event_id}: {field} = {new_value}")
 
 
 # ─── Модерация (UC-01) ───────────────────────────────────────
@@ -1275,7 +1572,30 @@ def build_application() -> Application:
         allow_reentry=True,
     )
 
+    # Moderator edit wizard
+    mod_edit_wizard = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_mod_edit, pattern="^mod_edit:"),
+        ],
+        states={
+            MOD_EDIT_FIELD: [
+                CallbackQueryHandler(handle_mod_edit_field, pattern="^mef:"),
+            ],
+            MOD_EDIT_VALUE: [
+                CallbackQueryHandler(handle_mod_edit_value_callback, pattern="^mev:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_mod_edit_value_text),
+                MessageHandler(filters.PHOTO, handle_mod_edit_value_text),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", lambda u, c: (
+            u.message.reply_text("Редактирование отменено."),
+            ConversationHandler.END
+        ))],
+        allow_reentry=True,
+    )
+
     app.add_handler(wizard)
+    app.add_handler(mod_edit_wizard)
 
     # Команды
     app.add_handler(CommandHandler("start",              cmd_start))
@@ -1305,6 +1625,10 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(handle_unsub_ev_callback,          pattern="^unsub_ev:"))
     app.add_handler(CallbackQueryHandler(handle_subcat_callback,            pattern="^subcat:"))
     app.add_handler(CallbackQueryHandler(handle_cant_come,                  pattern="^cant_come:"))
+    # Moderator manage-events callbacks
+    app.add_handler(CallbackQueryHandler(handle_mod_page,                   pattern="^mod_page:"))
+    app.add_handler(CallbackQueryHandler(handle_mod_delete,                 pattern="^mod_delete:"))
+    app.add_handler(CallbackQueryHandler(handle_mod_delete_confirm,         pattern="^mod_delete_(confirm|cancel)"))
 
     # Свободный текст
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
@@ -1319,5 +1643,5 @@ def build_application() -> Application:
 
 if __name__ == "__main__":
     application = build_application()
-    logger.info("NextQuest bot v0.4 started.")
+    logger.info("NextQuest bot v0.5 started.")
     application.run_polling()
