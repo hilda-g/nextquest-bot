@@ -1171,12 +1171,13 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     draft_id = ctx.user_data.pop("draft_id", None)
+    db_ev = {**_db_fields(ev), "status": "pending"}
     try:
         if draft_id:
-            supabase.table("events").update({**ev, "status": "pending"}).eq("id", draft_id).execute()
+            supabase.table("events").update(db_ev).eq("id", draft_id).execute()
             event_id = draft_id
         else:
-            res = supabase.table("events").insert({**ev, "status": "pending"}).execute()
+            res = supabase.table("events").insert(db_ev).execute()
             event_id = res.data[0]["id"]
     except Exception as e:
         logger.error(f"Failed to save event to Supabase: {e}")
@@ -1353,21 +1354,38 @@ async def _show_preview(message, ev: dict):
     await message.reply_text(caption, reply_markup=keyboard, parse_mode="Markdown")
     return EV_EDIT_FIELD
 
+# Known columns in the Supabase `events` table.
+# Keys NOT in this set are internal bot state and must never be sent to the DB.
+_EVENT_DB_COLUMNS = {
+    "title", "description", "category",
+    "date_start", "date_end", "timezone",
+    "cover_image_url",
+    "location_city", "location_address", "location_lat", "location_lng",
+    "organizer_tg_id", "status",
+    "max_participants", "external_url",
+    "reject_reason",
+}
+
+def _db_fields(ev: dict) -> dict:
+    """Return only the keys that belong to the Supabase events table."""
+    return {k: v for k, v in ev.items() if k in _EVENT_DB_COLUMNS}
+
+
 async def _save_draft(ctx):
     """Сохраняет или обновляет черновик в БД."""
     ev = ctx.user_data.get("new_event", {})
     if not ev.get("organizer_tg_id"):
         return
     draft_id = ctx.user_data.get("draft_id")
-    ev_data  = {**ev, "status": "draft"}
+    ev_data  = {**_db_fields(ev), "status": "draft"}
     if draft_id:
         supabase.table("events").update(ev_data).eq("id", draft_id).execute()
     else:
         try:
             res = supabase.table("events").insert(ev_data).execute()
             ctx.user_data["draft_id"] = res.data[0]["id"]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"_save_draft insert failed: {e}")
 
 
 # ─── Мои события (UC-05, UC-06) ─────────────────────────────
