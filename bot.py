@@ -1103,8 +1103,16 @@ async def ev_get_desc(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if update.message.photo:
-        ctx.user_data["new_event"]["cover_image_url"] = update.message.photo[-1].file_id
-        ctx.user_data["new_event"]["cover_file_id"]   = update.message.photo[-1].file_id
+        file = await update.message.photo[-1].get_file()
+        file_bytes = await file.download_as_bytearray()
+        filename = f"covers/{update.effective_user.id}_{int(datetime.now().timestamp())}.jpg"
+        supabase.storage.from_("event-covers").upload(
+            filename,
+            bytes(file_bytes),
+            {"content-type": "image/jpeg"}
+        )
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/event-covers/{filename}"
+        ctx.user_data["new_event"]["cover_image_url"] = public_url
     elif update.message.text and update.message.text.startswith("http"):
         ctx.user_data["new_event"]["cover_image_url"] = update.message.text.strip()
     else:
