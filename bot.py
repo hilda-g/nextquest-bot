@@ -621,9 +621,14 @@ async def handle_mod_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_T
 
     # Фото для обложки
     if field == "cover_image_url" and update.message.photo:
-        new_value = update.message.photo[-1].file_id
-        await _apply_mod_edit(ctx, field, new_value, update.message)
-        return ConversationHandler.END
+        file = await update.message.photo[-1].get_file()
+        file_bytes = await file.download_as_bytearray()
+        filename = f"covers/{update.effective_user.id}_{int(datetime.now().timestamp())}.jpg"
+        supabase.storage.from_("event-covers").upload(
+            filename, bytes(file_bytes), {"content-type": "image/jpeg"}
+        )
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/event-covers/{filename}"
+        ctx.user_data["new_event"]["cover_image_url"] = public_url
 
     if raw is None:
         await update.message.reply_text("❌ Ожидается текст или фото.")
