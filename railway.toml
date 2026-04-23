@@ -1,0 +1,11 @@
+[[services]]
+name = "nextquest-bot"
+
+[services.deploy]
+startCommand = "python bot.py"
+
+[[services]]
+name = "nextquest-notifier"
+
+[services.deploy]
+startCommand = "uvicorn channel_notifier:app --host 0.0.0.0 --port $PORT"
