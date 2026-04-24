@@ -61,6 +61,24 @@ app = FastAPI(lifespan=lifespan)
 
 # ── Message builders ──────────────────────────────────────────
 
+
+MONTHS_RU = ["января","февраля","марта","апреля","мая","июня",
+             "июля","августа","сентября","октября","ноября","декабря"]
+WEEKDAYS_RU = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
+
+def format_date_ru(iso: str) -> str:
+    """Convert ISO datetime to human-readable Russian format: Суббота, 10 мая · 22:30"""
+    from datetime import datetime as dt
+    d = dt.fromisoformat(iso[:16])
+    weekday = WEEKDAYS_RU[d.weekday()]
+    month   = MONTHS_RU[d.month - 1]
+    return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
+
+def maps_url(city: str, address: str) -> str:
+    from urllib.parse import quote
+    q = quote(f"{address} {city}".strip())
+    return f"https://maps.google.com/?q={q}"
+
 def build_google_calendar_url(ev: dict) -> str:
     """Generate a Google Calendar 'Add to Calendar' link from event data."""
     from urllib.parse import quote
@@ -79,21 +97,22 @@ def build_google_calendar_url(ev: dict) -> str:
     )
 
 def build_new_event_message(ev: dict) -> str:
-    date_str    = ev["date_start"][:16].replace("T", " ")
-    end_str     = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
+    date_str    = format_date_ru(ev["date_start"])
+    end_str     = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
     cat         = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
     organizer   = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
     description = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
     gcal_url    = build_google_calendar_url(ev)
     event_url   = f"{SITE_URL}/events/{ev['id']}"
     remind_url  = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    location_link = f"[📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
     return (
         f"✨ *Событие в календаре*\n\n"
         f"*{ev['title'].upper()}*\n"
         f"{cat}\n"
         f"📅 {date_str}{end_str}\n"
-        f"📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}"
+        f"{location_link}"
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
@@ -104,17 +123,17 @@ def build_new_event_message(ev: dict) -> str:
     )
 
 def build_updated_event_message(ev: dict) -> str:
-    date_str  = ev["date_start"][:16].replace("T", " ")
-    end_str   = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
-    cat       = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
-    event_url = f"{SITE_URL}/events/{ev['id']}"
+    date_str      = format_date_ru(ev["date_start"])
+    cat           = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
+    event_url     = f"{SITE_URL}/events/{ev['id']}"
+    location_link = f"[📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
     return (
         f"✏️ *Событие обновлено*\n\n"
         f"*{ev['title'].upper()}*\n"
         f"{cat}\n"
-        f"📅 {date_str}{end_str}\n"
-        f"📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}\n\n"
+        f"📅 {date_str}\n"
+        f"{location_link}\n\n"
         f"[🌐 Страница события]({event_url})"
     )
 

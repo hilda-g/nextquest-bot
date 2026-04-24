@@ -110,19 +110,38 @@ def build_google_calendar_url(ev: dict) -> str:
         f"&text={title}&dates={start}/{end}&location={location}&details={details}"
     )
 
+
+MONTHS_RU = ["января","февраля","марта","апреля","мая","июня",
+             "июля","августа","сентября","октября","ноября","декабря"]
+WEEKDAYS_RU = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
+
+def format_date_ru(iso: str) -> str:
+    """Convert ISO datetime to human-readable Russian format: Суббота, 10 мая · 22:30"""
+    from datetime import datetime as dt
+    d = dt.fromisoformat(iso[:16])
+    weekday = WEEKDAYS_RU[d.weekday()]
+    month   = MONTHS_RU[d.month - 1]
+    return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
+
+def maps_url(city: str, address: str) -> str:
+    from urllib.parse import quote
+    q = quote(f"{address} {city}".strip())
+    return f"https://maps.google.com/?q={q}"
+
 def event_card_text(ev: dict) -> str:
-    date_str   = ev["date_start"][:16].replace("T", " ")
-    end_str    = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
+    date_str   = format_date_ru(ev["date_start"])
+    end_str    = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
     limit      = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
     organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
+    location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
         f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])}\n"
         f"📅 {date_str}{end_str}\n"
-        f"📍 {ev['location_city']} · {ev['location_address']}\n"
+        f"{location_link}\n"
         f"👥 {limit}"
         f"{organizer}\n\n"
         f"{ev['description']}\n\n"
@@ -135,17 +154,18 @@ def event_card_text(ev: dict) -> str:
 
 def event_share_text(ev: dict) -> str:
     """Готовый текст для репоста в Telegram-чат."""
-    date_str   = ev["date_start"][:16].replace("T", " ")
+    date_str   = format_date_ru(ev["date_start"])
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev['id']}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
     description = ev['description'][:300] + ('...' if len(ev['description']) > 300 else '')
+    location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
         f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])} · {ev['location_city']}\n"
         f"📅 {date_str}\n"
-        f"📍 {ev['location_address']}"
+        f"{location_link}"
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
