@@ -26,6 +26,7 @@ Run:
     SUPABASE_SERVICE_KEY=eyJ...
     SITE_URL=https://nextquest.today        # optional
     BOT_USERNAME=nextquest_bot              # optional
+    ADMIN_ORIGIN=https://nextquest.today   # optional, for CORS
 """
 
 import os
@@ -34,6 +35,7 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 
 from fastapi import FastAPI, Request, HTTPException, Header
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import telegram
@@ -74,6 +76,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Allow the admin panel origin to call /post/manual directly from the browser.
+# Adjust VITE_SITE_URL in your env if your admin panel is on a different domain.
+ADMIN_ORIGIN = os.environ.get("ADMIN_ORIGIN", "https://nextquest.today")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[ADMIN_ORIGIN],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type", "X-Webhook-Secret"],
+)
 
 
 # ── Message builder (single source of truth) ─────────────────
