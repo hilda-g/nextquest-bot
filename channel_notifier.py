@@ -23,7 +23,6 @@ import hmac
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException, Header
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import telegram
 
@@ -59,34 +58,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "https://nextquest.today").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["POST", "GET", "OPTIONS"],
-    allow_headers=["*"],
-)
-
 
 # ── Message builders ──────────────────────────────────────────
-
-
-MONTHS_RU = ["января","февраля","марта","апреля","мая","июня",
-             "июля","августа","сентября","октября","ноября","декабря"]
-WEEKDAYS_RU = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
-
-def format_date_ru(iso: str) -> str:
-    """Convert ISO datetime to human-readable Russian format: Суббота, 10 мая · 22:30"""
-    from datetime import datetime as dt
-    d = dt.fromisoformat(iso[:16])
-    weekday = WEEKDAYS_RU[d.weekday()]
-    month   = MONTHS_RU[d.month - 1]
-    return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
-
-def maps_url(city: str, address: str) -> str:
-    from urllib.parse import quote
-    q = quote(f"{address} {city}".strip())
-    return f"https://maps.google.com/?q={q}"
 
 def build_google_calendar_url(ev: dict) -> str:
     """Generate a Google Calendar 'Add to Calendar' link from event data."""
@@ -106,22 +79,21 @@ def build_google_calendar_url(ev: dict) -> str:
     )
 
 def build_new_event_message(ev: dict) -> str:
-    date_str    = format_date_ru(ev["date_start"])
-    end_str     = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
+    date_str    = ev["date_start"][:16].replace("T", " ")
+    end_str     = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
     cat         = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
     organizer   = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
     description = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
     gcal_url    = build_google_calendar_url(ev)
     event_url   = f"{SITE_URL}/events/{ev['id']}"
     remind_url  = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
-    location_link = f"[📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
     return (
         f"✨ *Событие в календаре*\n\n"
         f"*{ev['title'].upper()}*\n"
         f"{cat}\n"
         f"📅 {date_str}{end_str}\n"
-        f"{location_link}"
+        f"📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}"
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
@@ -130,22 +102,6 @@ def build_new_event_message(ev: dict) -> str:
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
         f"⭐ Хочешь добавить своё событие? Напиши боту!"
     )
-
-def build_updated_event_message(ev: dict) -> str:
-    date_str      = format_date_ru(ev["date_start"])
-    cat           = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
-    event_url     = f"{SITE_URL}/events/{ev['id']}"
-    location_link = f"[📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
-
-    return (
-        f"✏️ *Событие обновлено*\n\n"
-        f"*{ev['title'].upper()}*\n"
-        f"{cat}\n"
-        f"📅 {date_str}\n"
-        f"{location_link}\n\n"
-        f"[🌐 Страница события]({event_url})"
-    )
-
 
 # ── Webhook endpoint ──────────────────────────────────────────
 
@@ -176,72 +132,20 @@ async def handle_event_webhook(
     if status != "published":
         return {"ok": True, "skipped": f"status={status}"}
 
+    # Only post to channel on first publish (new approval).
+    # Edits, cancellations and deletions do NOT auto-post — use the manual 'Create Post' button instead.
     is_new_publish = (
         event_type == "INSERT"
         or (event_type == "UPDATE" and old_status != "published")
     )
-    is_update = (
-        event_type == "UPDATE"
-        and old_status == "published"
-    )
+
+    if not is_new_publish:
+        return {"ok": True, "skipped": "not a new publish"}
 
     try:
-        if is_new_publish:
-            text = build_new_event_message(record)
-            cover = record.get("cover_image_url")
+        text  = build_new_event_message(record)
+        cover = record.get("cover_image_url")
 
-            if cover:
-                await bot.send_photo(
-                    chat_id=CHANNEL_ID,
-                    photo=cover,
-                    caption=text,
-                    parse_mode="Markdown",
-                )
-            else:
-                await bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=text,
-                    parse_mode="Markdown",
-                    disable_web_page_preview=False,
-                )
-            logger.info(f"Posted new event {record.get('id')} to channel.")
-
-        elif is_update:
-            text = build_updated_event_message(record)
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=text,
-                parse_mode="Markdown",
-            )
-            logger.info(f"Posted update for event {record.get('id')} to channel.")
-
-    except telegram.error.TelegramError as e:
-        logger.error(f"Telegram error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-    return {"ok": True}
-
-
-@app.post("/post/manual")
-async def post_manual(
-    request: Request,
-    x_webhook_secret: str | None = Header(default=None),
-):
-    """Called by the website admin panel to manually post an event to the channel."""
-    if WEBHOOK_SECRET:
-        if x_webhook_secret != WEBHOOK_SECRET:
-            raise HTTPException(status_code=403, detail="Invalid secret")
-
-    payload = await request.json()
-    ev = payload.get("record") or payload  # support both {record: {...}} and {...} directly
-
-    if not ev:
-        raise HTTPException(status_code=400, detail="No event data")
-
-    text  = build_new_event_message(ev)
-    cover = ev.get("cover_image_url")
-
-    try:
         if cover:
             await bot.send_photo(
                 chat_id=CHANNEL_ID,
@@ -256,9 +160,10 @@ async def post_manual(
                 parse_mode="Markdown",
                 disable_web_page_preview=False,
             )
-        logger.info(f"Manual post sent for event {ev.get('id')}")
+        logger.info(f"Posted new event {record.get('id')} to channel.")
+
     except telegram.error.TelegramError as e:
-        logger.error(f"Telegram error on manual post: {e}")
+        logger.error(f"Telegram error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"ok": True}
