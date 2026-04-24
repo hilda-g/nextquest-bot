@@ -23,6 +23,7 @@ import hmac
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException, Header
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import telegram
 
@@ -57,6 +58,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "https://nextquest.today").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 # ── Message builders ──────────────────────────────────────────
@@ -103,6 +112,8 @@ def build_new_event_message(ev: dict) -> str:
         f"⭐ Хочешь добавить своё событие? Напиши боту!"
     )
 
+
+
 # ── Webhook endpoint ──────────────────────────────────────────
 
 @app.post("/webhook/event")
@@ -132,8 +143,7 @@ async def handle_event_webhook(
     if status != "published":
         return {"ok": True, "skipped": f"status={status}"}
 
-    # Only post to channel on first publish (new approval).
-    # Edits, cancellations and deletions do NOT auto-post — use the manual 'Create Post' button instead.
+    # Only post on first approval. Edits/cancellations do NOT auto-post.
     is_new_publish = (
         event_type == "INSERT"
         or (event_type == "UPDATE" and old_status != "published")
@@ -164,6 +174,50 @@ async def handle_event_webhook(
 
     except telegram.error.TelegramError as e:
         logger.error(f"Telegram error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"ok": True}
+
+
+# ── Manual post endpoint (called by website admin panel) ──────────────
+
+@app.post("/post/manual")
+async def post_manual(
+    request: Request,
+    x_webhook_secret: str | None = Header(default=None),
+):
+    """Called by the website admin panel to manually post an event to the channel."""
+    if WEBHOOK_SECRET:
+        if x_webhook_secret != WEBHOOK_SECRET:
+            raise HTTPException(status_code=403, detail="Invalid secret")
+
+    payload = await request.json()
+    ev = payload.get("record") or payload
+
+    if not ev:
+        raise HTTPException(status_code=400, detail="No event data")
+
+    text  = build_new_event_message(ev)
+    cover = ev.get("cover_image_url")
+
+    try:
+        if cover:
+            await bot.send_photo(
+                chat_id=CHANNEL_ID,
+                photo=cover,
+                caption=text,
+                parse_mode="Markdown",
+            )
+        else:
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=text,
+                parse_mode="Markdown",
+                disable_web_page_preview=False,
+            )
+        logger.info(f"Manual post sent for event {ev.get('id')}")
+    except telegram.error.TelegramError as e:
+        logger.error(f"Telegram error on manual post: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"ok": True}
