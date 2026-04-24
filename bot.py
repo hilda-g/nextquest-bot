@@ -94,31 +94,65 @@ def is_organizer(tg_id: int) -> bool:
     u = get_user(tg_id)
     return bool(u and u["role"] in ("organizer", "moderator"))
 
-def event_card_text(ev: dict) -> str:
-    date_str = ev["date_start"][:16].replace("T", " ")
-    end_str  = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
-    limit    = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
-    url_line = f"\n🔗 {ev['external_url']}" if ev.get("external_url") else ""
+def build_google_calendar_url(ev: dict) -> str:
+    """Generate a Google Calendar 'Add to Calendar' link from event data."""
+    from urllib.parse import quote
+    start = ev["date_start"].replace("-", "").replace(":", "").replace(" ", "T")[:15] + "00"
+    if ev.get("date_end"):
+        end = ev["date_end"].replace("-", "").replace(":", "").replace(" ", "T")[:15] + "00"
+    else:
+        end = start
+    title    = quote(ev.get("title", ""))
+    location = quote(f"{ev.get('location_city', '')} {ev.get('location_address', '')}".strip())
+    details  = quote(f"{SITE_URL}/events/{ev.get('id', '')}")
     return (
-        f"*{ev['title']}*\n"
+        f"https://calendar.google.com/calendar/render?action=TEMPLATE"
+        f"&text={title}&dates={start}/{end}&location={location}&details={details}"
+    )
+
+def event_card_text(ev: dict) -> str:
+    date_str   = ev["date_start"][:16].replace("T", " ")
+    end_str    = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
+    limit      = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
+    organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
+    gcal_url   = build_google_calendar_url(ev)
+    event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
+    remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
+    return (
+        f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])}\n"
-        f"🗓 {date_str}{end_str}\n"
+        f"📅 {date_str}{end_str}\n"
         f"📍 {ev['location_city']} · {ev['location_address']}\n"
-        f"👥 {limit}{url_line}\n\n"
-        f"{ev['description']}"
+        f"👥 {limit}"
+        f"{organizer}\n\n"
+        f"{ev['description']}\n\n"
+        f"——————————————————\n\n"
+        f"[🔔 Подписаться на напоминание]({remind_url})\n"
+        f"[🌐 Страница события]({event_url})\n"
+        f"[📅 Добавить в Google Календарь]({gcal_url})\n"
+        f"⭐ Хочешь добавить своё событие? Напиши боту!"
     )
 
 def event_share_text(ev: dict) -> str:
     """Готовый текст для репоста в Telegram-чат."""
-    date_str = ev["date_start"][:16].replace("T", " ")
+    date_str   = ev["date_start"][:16].replace("T", " ")
+    gcal_url   = build_google_calendar_url(ev)
+    event_url  = f"{SITE_URL}/events/{ev['id']}"
+    remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
+    description = ev['description'][:300] + ('...' if len(ev['description']) > 300 else '')
     return (
-        f"📣 *{ev['title']}*\n"
+        f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])} · {ev['location_city']}\n"
-        f"🗓 {date_str}\n"
-        f"📍 {ev['location_address']}\n\n"
-        f"{ev['description'][:300]}{'...' if len(ev['description']) > 300 else ''}\n\n"
-        f"🔔 Подписаться на напоминание: t.me/{BOT_USERNAME}?start=event_{ev['id']}\n"
-        f"🌐 {SITE_URL}/events/{ev['id']}"
+        f"📅 {date_str}\n"
+        f"📍 {ev['location_address']}"
+        f"{organizer}\n\n"
+        f"{description}\n\n"
+        f"——————————————————\n\n"
+        f"[🔔 Подписаться на напоминание]({remind_url})\n"
+        f"[🌐 Страница события]({event_url})\n"
+        f"[📅 Добавить в Google Календарь]({gcal_url})\n"
+        f"⭐ Хочешь добавить своё событие? Напиши боту!"
     )
 
 def make_year_keyboard(prefix: str) -> InlineKeyboardMarkup:
