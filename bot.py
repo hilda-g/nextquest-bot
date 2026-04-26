@@ -728,7 +728,7 @@ FIELD_LABELS = {
     "max_participants": "Новый лимит участников (число или `-` без лимита):",
     "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
     "cover_image_url":  "Новая ссылка на обложку (https://...) или отправь фото:",
-    "category":         s(lang, "ask_select_category"),
+    "category":         "Выбери категорию:",
     "format":           "Выбери формат:",
 }
 
