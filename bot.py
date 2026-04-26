@@ -1285,7 +1285,7 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                  InlineKeyboardButton("🗓 Дата конца",  callback_data="evf:date_end")],
                 [InlineKeyboardButton("🔗 Ссылка рег.", callback_data="evf:external_url"),
                  InlineKeyboardButton("📋 Контакт орг.", callback_data="evf:organizer_contacts")],
-                [InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url"),
+                [InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
                 [InlineKeyboardButton("🎉 Формат",      callback_data="evf:format"),
                  InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
             ])
