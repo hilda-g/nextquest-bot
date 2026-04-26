@@ -1877,6 +1877,155 @@ async def job_draft_reminders(ctx: ContextTypes.DEFAULT_TYPE):
             pass
 
 
+
+# ─── Напоминание организатору: завершить регистрацию (7 дней) ─
+
+async def job_organizer_reg_reminder(ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Runs every hour. 7 days before the event start, sends the organizer
+    a reminder to press 'End Registration' if all spots are filled.
+    Only fires for published events with max_participants set and
+    registration_closed = false. Logged to notification_log (type = reg_reminder_7d).
+    """
+    now          = datetime.now(timezone.utc)
+    window_start = now + timedelta(days=7) - timedelta(hours=1)
+    window_end   = now + timedelta(days=7) + timedelta(hours=1)
+
+    events = supabase.table("events").select("*")             .eq("status", "published")             .eq("registration_closed", False)             .not_.is_("max_participants", "null")             .gte("date_start", window_start.isoformat())             .lte("date_start", window_end.isoformat()).execute()
+
+    for ev in events.data:
+        organizer_id = ev.get("organizer_tg_id")
+        if not organizer_id:
+            continue
+
+        # Skip if already sent this reminder for this event
+        already = supabase.table("notification_log").select("id")                  .eq("tg_id", organizer_id)                  .eq("event_id", ev["id"])                  .eq("type", "reg_reminder_7d").execute()
+        if already.data:
+            continue
+
+        date_str = ev["date_start"][:16].replace("T", " ")
+        limit    = ev["max_participants"]
+
+        try:
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔒 End Registration", callback_data=f"end_reg:{ev['id']}"),
+                InlineKeyboardButton("✅ Still Open",       callback_data=f"end_reg_skip:{ev['id']}"),
+            ]])
+            await ctx.bot.send_message(
+                organizer_id,
+                f"⏰ *Твоё событие через 7 дней!*
+
+"
+                f"📌 *{ev['title']}*
+"
+                f"📅 {date_str}
+"
+                f"👥 Лимит: {limit} участников
+
+"
+                f"Если все места уже заняты — нажми *End Registration*, "
+                f"чтобы обновить статус события на сайте до *Full*.",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            supabase.table("notification_log").insert({
+                "tg_id": organizer_id,
+                "event_id": ev["id"],
+                "type": "reg_reminder_7d"
+            }).execute()
+            logger.info(f"Sent reg_reminder_7d to organizer {organizer_id} for event {ev['id']}")
+        except Exception as e:
+            logger.warning(f"reg_reminder_7d failed for {organizer_id}: {e}")
+
+
+async def handle_end_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Step 1: Organizer taps 'End Registration' inline button.
+    Stores event_id and asks for confirmation.
+    """
+    query    = update.callback_query
+    await query.answer()
+    event_id = query.data.split(":")[1]
+
+    ev = supabase.table("events").select("id, title, max_participants")         .eq("id", event_id).single().execute().data
+    if not ev:
+        await query.message.reply_text("❌ Событие не найдено.")
+        return
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ Да, закрыть регистрацию", callback_data=f"end_reg_confirm:{event_id}"),
+        InlineKeyboardButton("❌ Отмена",                  callback_data=f"end_reg_cancel:{event_id}"),
+    ]])
+    await query.message.reply_text(
+        f"🔒 *Закрыть регистрацию?*
+
+"
+        f"📌 *{ev['title']}*
+"
+        f"👥 Лимит: {ev['max_participants']} участников
+
+"
+        f"Это обновит статус до *Full* на сайте и уведомит всех подписчиков.",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+
+async def handle_end_registration_confirm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Step 2: Organizer confirms. Writes registration_closed=true and notifies subscribers.
+    """
+    query    = update.callback_query
+    await query.answer()
+    event_id = query.data.split(":")[1]
+
+    # Write to DB
+    supabase.table("events").update({"registration_closed": True}).eq("id", event_id).execute()
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+
+    await query.message.reply_text(
+        f"✅ Готово! *{ev['title']}* теперь отмечено как *Full* на сайте.",
+        parse_mode="Markdown"
+    )
+    logger.info(f"registration_closed=true set for event {event_id}")
+
+    # Notify all subscribers
+    subs = supabase.table("subscriptions").select("tg_id").eq("event_id", event_id).execute()
+    date_str = ev["date_start"][:16].replace("T", " ")
+    for s in subs.data:
+        try:
+            await ctx.bot.send_message(
+                s["tg_id"],
+                f"🔒 *Регистрация закрыта!*
+
+"
+                f"📌 *{ev['title']}*
+"
+                f"📅 {date_str}
+"
+                f"👥 Все места заняты.
+
+"
+                f"Увидимся на событии! 🎉",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.warning(f"Subscriber notify failed for {s['tg_id']}: {e}")
+
+
+async def handle_end_registration_skip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer taps 'Still Open' — dismiss reminder silently."""
+    query = update.callback_query
+    await query.answer("Понял, регистрация пока открыта.", show_alert=False)
+
+
+async def handle_end_registration_cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer cancels the confirmation step."""
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text("Отменено. Регистрация по-прежнему открыта.")
+
+
 # ─── Общий обработчик текста ─────────────────────────────────
 
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2001,6 +2150,10 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(handle_unsub_ev_callback,          pattern="^unsub_ev:"))
     app.add_handler(CallbackQueryHandler(handle_subcat_callback,            pattern="^subcat:"))
     app.add_handler(CallbackQueryHandler(handle_cant_come,                  pattern="^cant_come:"))
+    app.add_handler(CallbackQueryHandler(handle_end_registration,            pattern="^end_reg:[^_]"))
+    app.add_handler(CallbackQueryHandler(handle_end_registration_confirm,    pattern="^end_reg_confirm:"))
+    app.add_handler(CallbackQueryHandler(handle_end_registration_cancel,     pattern="^end_reg_cancel:"))
+    app.add_handler(CallbackQueryHandler(handle_end_registration_skip,       pattern="^end_reg_skip:"))
     # Moderator manage-events callbacks
     app.add_handler(CallbackQueryHandler(handle_mod_page,                   pattern="^mod_page:"))
     app.add_handler(CallbackQueryHandler(handle_mod_delete,                 pattern="^mod_delete:"))
@@ -2011,7 +2164,8 @@ def build_application() -> Application:
 
     # Cron-задачи
     job_queue: JobQueue = app.job_queue
-    job_queue.run_repeating(job_send_reminders,  interval=3600, first=60)   # каждый час
+    job_queue.run_repeating(job_send_reminders,          interval=3600, first=60)   # каждый час
+    job_queue.run_repeating(job_organizer_reg_reminder,  interval=3600, first=90)   # каждый час
     job_queue.run_repeating(job_draft_reminders, interval=3600, first=120)  # каждый час
 
     return app
