@@ -1941,6 +1941,10 @@ async def handle_subcat_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         get_or_create_user(tg_id, query.from_user.username)
         supabase.table("subscriptions").insert({"tg_id": tg_id, "category": cat}).execute()
         await query.answer(s(lang, "subcat_sub", cat=CATEGORIES[cat]), show_alert=False)
+        await query.message.reply_text(
+            s(lang, "subcat_sub_confirm", cat=CATEGORIES[cat]),
+            parse_mode="Markdown"
+        )
 
 
 # ─── Напоминания (UC-10: 7д и 1д) ───────────────────────────

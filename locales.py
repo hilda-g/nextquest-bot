@@ -431,10 +431,10 @@ STRINGS = {
 
     # ── My events ────────────────────────────────────────────
     "no_events_yet": {
-        "en": "You have no events yet. Use /new_event to add one!",
-        "ru": "У тебя пока нет событий. /new_event чтобы добавить!",
-        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new_event!",
-        "uk": "У тебе поки немає подій. /new_event щоб додати!",
+        "en": "You have no events yet. Use /new\\_event to add one!",
+        "ru": "У тебя пока нет событий. /new\\_event чтобы добавить!",
+        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new\\_event!",
+        "uk": "У тебе поки немає подій. /new\\_event щоб додати!",
     },
     "not_your_event": {
         "en": "⛔ This is not your event.",
@@ -820,6 +820,12 @@ STRINGS = {
         "ru": "Подписка на {cat}",
         "el": "Εγγραφή σε {cat}",
         "uk": "Підписка на {cat}",
+    },
+    "subcat_sub_confirm": {
+        "en": "📌 You're now subscribed to *{cat}*!\n\nYou'll be notified when new events in this category are published.",
+        "ru": "📌 Ты подписан на *{cat}*!\n\nМы уведомим тебя когда появятся новые события в этой категории.",
+        "el": "📌 Είσαι εγγεγραμμένος στο *{cat}*!\n\nΘα ειδοποιηθείς όταν δημοσιευτούν νέες εκδηλώσεις σε αυτήν την κατηγορία.",
+        "uk": "📌 Ти підписаний на *{cat}*!\n\nМи повідомимо тебе коли з'являться нові події у цій категорії.",
     },
     "event_status_info": {
         "en": "{icon} *{title}*\nStatus: {status}\n👥 Subscribers: {count}\n{reject}",
