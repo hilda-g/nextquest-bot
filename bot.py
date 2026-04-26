@@ -120,6 +120,102 @@ def get_user(tg_id: int):
     res = supabase.table("users").select("*").eq("tg_id", tg_id).execute()
     return res.data[0] if res.data else None
 
+def get_user_lang(tg_id: int) -> str:
+    u = get_user(tg_id)
+    if u and u.get("language") in ("en", "ru", "el", "uk"):
+        return u["language"]
+    return "ru"
+
+def set_user_lang(tg_id: int, lang: str):
+    supabase.table("users").update({"language": lang}).eq("tg_id", tg_id).execute()
+
+# ─── Bot strings (start flow + settings) ─────────────────────
+BOT_STRINGS = {
+    "en": {
+        "welcome":        "👋 Hi! I'm *NextQuest* — your guide to geek events in Cyprus.\n\nFirst, choose your language:",
+        "lang_set":       "🇬🇧 Language set to English.",
+        "who_are_you":    "Who are you?",
+        "btn_participant":"🎲 Participant — looking for events",
+        "btn_organizer":  "🎪 Organizer — adding events",
+        "menu_organizer": "Organizer menu:",
+        "menu_participant":"Menu:",
+        "btn_new_event":  "✨ Add event",
+        "btn_my_events":  "📋 My events",
+        "btn_feedback":   "📬 Feedback",
+        "btn_my_subs":    "🔔 My subscriptions",
+        "btn_upcoming":   "🗓 Upcoming events",
+        "btn_subscribe":  "📌 Subscribe to topic",
+        "no_org_role":    "🎪 To add events you need moderator verification.\n\nSend a request with /request\\_organizer",
+        "settings_title": "⚙️ Settings",
+        "settings_lang":  "🌐 Change language",
+        "lang_changed":   "✅ Language changed to English 🇬🇧",
+    },
+    "ru": {
+        "welcome":        "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nСначала выбери язык:",
+        "lang_set":       "🇷🇺 Язык установлен: Русский.",
+        "who_are_you":    "Кто ты?",
+        "btn_participant":"🎲 Участник — ищу события",
+        "btn_organizer":  "🎪 Организатор — добавляю события",
+        "menu_organizer": "Меню организатора:",
+        "menu_participant":"Меню:",
+        "btn_new_event":  "✨ Добавить событие",
+        "btn_my_events":  "📋 Мои события",
+        "btn_feedback":   "📬 Обратная связь",
+        "btn_my_subs":    "🔔 Мои подписки",
+        "btn_upcoming":   "🗓 Ближайшие события",
+        "btn_subscribe":  "📌 Подписаться на тему",
+        "no_org_role":    "🎪 Чтобы добавлять события, нужна верификация модератором.\n\nОтправь запрос командой /request\\_organizer",
+        "settings_title": "⚙️ Настройки",
+        "settings_lang":  "🌐 Сменить язык",
+        "lang_changed":   "✅ Язык изменён на Русский 🇷🇺",
+    },
+    "el": {
+        "welcome":        "👋 Γεια! Είμαι το *NextQuest* — ο οδηγός geek εκδηλώσεων στην Κύπρο.\n\nΕπίλεξε γλώσσα:",
+        "lang_set":       "🇬🇷 Γλώσσα: Ελληνικά.",
+        "who_are_you":    "Ποιος είσαι;",
+        "btn_participant":"🎲 Συμμετέχων — ψάχνω εκδηλώσεις",
+        "btn_organizer":  "🎪 Διοργανωτής — προσθέτω εκδηλώσεις",
+        "menu_organizer": "Μενού διοργανωτή:",
+        "menu_participant":"Μενού:",
+        "btn_new_event":  "✨ Προσθήκη εκδήλωσης",
+        "btn_my_events":  "📋 Οι εκδηλώσεις μου",
+        "btn_feedback":   "📬 Σχόλια",
+        "btn_my_subs":    "🔔 Οι συνδρομές μου",
+        "btn_upcoming":   "🗓 Επερχόμενες εκδηλώσεις",
+        "btn_subscribe":  "📌 Εγγραφή σε θέμα",
+        "no_org_role":    "🎪 Για να προσθέσεις εκδηλώσεις χρειάζεται επαλήθευση.\n\nΑπόστειλε αίτημα με /request\\_organizer",
+        "settings_title": "⚙️ Ρυθμίσεις",
+        "settings_lang":  "🌐 Αλλαγή γλώσσας",
+        "lang_changed":   "✅ Η γλώσσα άλλαξε σε Ελληνικά 🇬🇷",
+    },
+    "uk": {
+        "welcome":        "👋 Привіт! Я *NextQuest* — бот подій гік-спільноти Кіпру.\n\nСпочатку обери мову:",
+        "lang_set":       "🇺🇦 Мову встановлено: Українська.",
+        "who_are_you":    "Хто ти?",
+        "btn_participant":"🎲 Учасник — шукаю події",
+        "btn_organizer":  "🎪 Організатор — додаю події",
+        "menu_organizer": "Меню організатора:",
+        "menu_participant":"Меню:",
+        "btn_new_event":  "✨ Додати подію",
+        "btn_my_events":  "📋 Мої події",
+        "btn_feedback":   "📬 Зворотній зв'язок",
+        "btn_my_subs":    "🔔 Мої підписки",
+        "btn_upcoming":   "🗓 Найближчі події",
+        "btn_subscribe":  "📌 Підписатись на тему",
+        "no_org_role":    "🎪 Щоб додавати події, потрібна верифікація модератором.\n\nНадішли запит командою /request\\_organizer",
+        "settings_title": "⚙️ Налаштування",
+        "settings_lang":  "🌐 Змінити мову",
+        "lang_changed":   "✅ Мову змінено на Українську 🇺🇦",
+    },
+}
+
+LANG_PICKER_KEYBOARD = InlineKeyboardMarkup([[
+    InlineKeyboardButton("🇬🇧 EN", callback_data="setlang:en"),
+    InlineKeyboardButton("🇷🇺 RU", callback_data="setlang:ru"),
+    InlineKeyboardButton("🇬🇷 GR", callback_data="setlang:el"),
+    InlineKeyboardButton("🇺🇦 UK", callback_data="setlang:uk"),
+]])
+
 def is_moderator(tg_id: int) -> bool:
     u = get_user(tg_id)
     return bool(u and u["role"] == "moderator")
@@ -273,68 +369,93 @@ async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_r
         await bot_or_message.send_message(chat_id, text, reply_markup=keyboard, parse_mode="Markdown")
 
 
-# ─── /start — онбординг с выбором роли (UC-09 + UC-04) ──────
+# ─── /start — language pick → role pick ─────────────────────
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     get_or_create_user(user.id, user.username)
 
-    # Deep-link: /start event_123
+    # Deep-link: /start event_123 — skip lang picker, go straight to event
     if ctx.args and ctx.args[0].startswith("event_"):
         event_id = ctx.args[0].split("_")[1]
         return await _show_event_deeplink(update, ctx, event_id)
 
-    # Всегда показываем приветствие с выбором роли
+    # Always show language picker first
+    ctx.user_data["lang_picker_from_start"] = True
     await update.message.reply_text(
-        "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nКто ты?",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🎲 Участник — ищу события",        callback_data="onboard:participant"),
-            InlineKeyboardButton("🎪 Организатор — добавляю события", callback_data="onboard:organizer"),
-        ]]),
+        "👋 *NextQuest* — geek events in Cyprus / события на Кипре\n\n🌐 Choose your language:",
+        reply_markup=LANG_PICKER_KEYBOARD,
         parse_mode="Markdown"
     )
 
-async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def handle_setlang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """User picked a language — save it.
+    If coming from /start (ctx.user_data has 'from_start'), show role picker.
+    If coming from /settings, just confirm the change.
+    """
     query = update.callback_query
+    await query.answer()
+    lang  = query.data.split(":")[1]
+    tg_id = query.from_user.id
+    set_user_lang(tg_id, lang)
+    s = BOT_STRINGS[lang]
+
+    # Decide context: from_start flag set by cmd_start, absent when from /settings
+    from_start = ctx.user_data.pop("lang_picker_from_start", False)
+    if from_start:
+        # Show role picker in chosen language
+        await query.message.reply_text(
+            s["welcome"],
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(s["btn_participant"], callback_data="onboard:participant"),
+                InlineKeyboardButton(s["btn_organizer"],  callback_data="onboard:organizer"),
+            ]]),
+            parse_mode="Markdown"
+        )
+    else:
+        # From /settings — just confirm
+        await query.message.reply_text(s["lang_changed"])
+
+async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query  = update.callback_query
     await query.answer()
     choice = query.data.split(":")[1]
     tg_id  = query.from_user.id
+    lang   = get_user_lang(tg_id)
 
     if choice == "participant":
-        # Participant button → always show participant menu, regardless of DB role
-        await _show_main_menu(query.message, "participant")
+        await _show_main_menu(query.message, "participant", lang)
     else:
-        # Organizer button → check actual DB role
-        db_user = get_user(tg_id)
+        db_user     = get_user(tg_id)
         actual_role = db_user["role"] if db_user else "participant"
         if actual_role not in ("organizer", "moderator"):
             await query.message.reply_text(
-                "🎪 Чтобы добавлять события, нужна верификация модератором.\n\n"
-                "Отправь запрос командой /request\\_organizer",
+                BOT_STRINGS[lang]["no_org_role"],
                 parse_mode="Markdown"
             )
-            await _show_main_menu(query.message, "participant")
+            await _show_main_menu(query.message, "participant", lang)
         else:
-            await _show_main_menu(query.message, actual_role)
+            await _show_main_menu(query.message, actual_role, lang)
 
-async def _show_main_menu(message, role: str):
+async def _show_main_menu(message, role: str, lang: str = "ru"):
+    s = BOT_STRINGS[lang]
     if role in ("organizer", "moderator"):
         await message.reply_text(
-            "Меню организатора:",
+            s["menu_organizer"],
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✨ Добавить событие",   callback_data="menu:new_event")],
-                [InlineKeyboardButton("📋 Мои события",        callback_data="menu:my_events")],
-                [InlineKeyboardButton("📬 Обратная связь",     callback_data="menu:feedback")],
-                [InlineKeyboardButton("🔔 Мои подписки",       callback_data="menu:my")],
+                [InlineKeyboardButton(s["btn_new_event"],  callback_data="menu:new_event")],
+                [InlineKeyboardButton(s["btn_my_events"],  callback_data="menu:my_events")],
+                [InlineKeyboardButton(s["btn_feedback"],   callback_data="menu:feedback")],
+                [InlineKeyboardButton(s["btn_my_subs"],    callback_data="menu:my")],
             ])
         )
     else:
         await message.reply_text(
-            "Меню:",
+            s["menu_participant"],
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🗓 Ближайшие события",  callback_data="menu:events")],
-                [InlineKeyboardButton("🔔 Мои подписки",       callback_data="menu:my")],
-                [InlineKeyboardButton("📌 Подписаться на тему", callback_data="menu:subscribe")],
+                [InlineKeyboardButton(s["btn_upcoming"],  callback_data="menu:events")],
+                [InlineKeyboardButton(s["btn_my_subs"],   callback_data="menu:my")],
+                [InlineKeyboardButton(s["btn_subscribe"], callback_data="menu:subscribe")],
             ])
         )
 
@@ -384,6 +505,30 @@ async def _show_event_deeplink(update: Update, ctx: ContextTypes.DEFAULT_TYPE, e
         InlineKeyboardButton("🔔 Подписаться на напоминание", callback_data=f"subev:{event_id}"),
     ]])
     await send_event_card(update.message, None, ev, keyboard, is_reply=True)
+
+
+# ─── /settings ───────────────────────────────────────────────
+
+async def cmd_settings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    tg_id = update.effective_user.id
+    lang  = get_user_lang(tg_id)
+    s     = BOT_STRINGS[lang]
+    await update.message.reply_text(
+        s["settings_title"],
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s["settings_lang"], callback_data="settings:lang"),
+        ]])
+    )
+
+async def handle_settings_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query  = update.callback_query
+    await query.answer()
+    action = query.data.split(":")[1]
+    if action == "lang":
+        await query.message.reply_text(
+            "🌐 Choose your language:",
+            reply_markup=LANG_PICKER_KEYBOARD
+        )
 
 
 # ─── /request_organizer (UC-00) ─────────────────────────────
@@ -2161,8 +2306,11 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("events",             cmd_events))
     app.add_handler(CommandHandler("my",                 cmd_my_subscriptions))
     app.add_handler(CommandHandler("subscribe",          cmd_subscribe_categories))
+    app.add_handler(CommandHandler("settings",           cmd_settings))
 
     # Callbacks
+    app.add_handler(CallbackQueryHandler(handle_setlang,                    pattern="^setlang:"))
+    app.add_handler(CallbackQueryHandler(handle_settings_callback,          pattern="^settings:"))
     app.add_handler(CallbackQueryHandler(handle_onboard,                    pattern="^onboard:"))
     app.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu:(?!new_event)"))
     app.add_handler(CallbackQueryHandler(handle_admin_menu,                 pattern="^admin:"))
