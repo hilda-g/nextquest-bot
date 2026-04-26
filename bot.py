@@ -394,7 +394,7 @@ async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif action == "feedback":
         await _show_feedback(fake, query.from_user.id)
     elif action == "events":
-        await _cmd_events_inner(fake)
+        await _cmd_events_inner(fake, get_user_lang(query.from_user.id))
     elif action == "my":
         await _cmd_my_inner(fake, query.from_user.id)
     elif action == "subscribe":
@@ -1803,12 +1803,17 @@ async def handle_mod_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ─── Просмотр событий (UC-09) ────────────────────────────────
 
-async def _cmd_events_inner(message):
-    lang = "ru"  # no user context, events list is language-agnostic
-    now = datetime.now(timezone.utc).isoformat()
+async def _cmd_events_inner(message, lang: str = "ru"):
+    now = datetime.now(timezone.utc)
+    # Start = right now, end = last moment of current month
+    month_end = datetime(now.year, now.month, 1, tzinfo=timezone.utc).replace(
+        month=now.month % 12 + 1, day=1
+    ) if now.month < 12 else datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
     res = supabase.table("events").select("*")\
-          .eq("status", "published").gte("date_start", now)\
-          .order("date_start").limit(5).execute()
+          .eq("status", "published")\
+          .gte("date_start", now.isoformat())\
+          .lt("date_start", month_end.isoformat())\
+          .order("date_start").execute()
     if not res.data:
         return await message.reply_text(s(lang, "no_upcoming"))
     for ev in res.data:
@@ -1825,7 +1830,8 @@ async def _cmd_events_inner(message):
         )
 
 async def cmd_events(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await _cmd_events_inner(update.message)
+    lang = get_user_lang(update.effective_user.id)
+    await _cmd_events_inner(update.message, lang)
 
 
 # ─── Подписки (UC-10, UC-11, UC-12) ─────────────────────────
@@ -2295,52 +2301,40 @@ def build_application() -> Application:
 
     # ── Bot menu commands (shown in Telegram's "/" menu) ──────
     async def post_init(application: Application) -> None:
+        from telegram import BotCommandScopeAllPrivateChats
         commands = {
             "en": [
-                BotCommand("start",            "Start / change role"),
-                BotCommand("events",           "Upcoming events"),
-                BotCommand("my",               "My subscriptions"),
-                BotCommand("subscribe",        "Subscribe to categories"),
-                BotCommand("settings",         "⚙️ Settings / language"),
-                BotCommand("new_event",        "Add a new event"),
-                BotCommand("my_events",        "My events"),
-                BotCommand("request_organizer","Request organizer role"),
+                BotCommand("start",     "👋 Start"),
+                BotCommand("events",    "📅 Events this month"),
+                BotCommand("my",        "🔔 My subscriptions"),
+                BotCommand("subscribe", "📌 Subscribe to category"),
+                BotCommand("settings",  "⚙️ Settings"),
             ],
             "ru": [
-                BotCommand("start",            "Начало / сменить роль"),
-                BotCommand("events",           "Ближайшие события"),
-                BotCommand("my",               "Мои подписки"),
-                BotCommand("subscribe",        "Подписаться на категории"),
-                BotCommand("settings",         "⚙️ Настройки / язык"),
-                BotCommand("new_event",        "Добавить событие"),
-                BotCommand("my_events",        "Мои события"),
-                BotCommand("request_organizer","Запросить роль организатора"),
+                BotCommand("start",     "👋 Старт"),
+                BotCommand("events",    "📅 События этого месяца"),
+                BotCommand("my",        "🔔 Мои подписки"),
+                BotCommand("subscribe", "📌 Подписаться на категорию"),
+                BotCommand("settings",  "⚙️ Настройки"),
             ],
             "el": [
-                BotCommand("start",            "Έναρξη / αλλαγή ρόλου"),
-                BotCommand("events",           "Επερχόμενες εκδηλώσεις"),
-                BotCommand("my",               "Οι συνδρομές μου"),
-                BotCommand("subscribe",        "Εγγραφή σε κατηγορίες"),
-                BotCommand("settings",         "⚙️ Ρυθμίσεις / γλώσσα"),
-                BotCommand("new_event",        "Προσθήκη εκδήλωσης"),
-                BotCommand("my_events",        "Οι εκδηλώσεις μου"),
-                BotCommand("request_organizer","Αίτημα ρόλου διοργανωτή"),
+                BotCommand("start",     "👋 Έναρξη"),
+                BotCommand("events",    "📅 Εκδηλώσεις αυτόν τον μήνα"),
+                BotCommand("my",        "🔔 Οι συνδρομές μου"),
+                BotCommand("subscribe", "📌 Εγγραφή σε κατηγορία"),
+                BotCommand("settings",  "⚙️ Ρυθμίσεις"),
             ],
             "uk": [
-                BotCommand("start",            "Початок / змінити роль"),
-                BotCommand("events",           "Найближчі події"),
-                BotCommand("my",               "Мої підписки"),
-                BotCommand("subscribe",        "Підписатись на категорії"),
-                BotCommand("settings",         "⚙️ Налаштування / мова"),
-                BotCommand("new_event",        "Додати подію"),
-                BotCommand("my_events",        "Мої події"),
-                BotCommand("request_organizer","Запит ролі організатора"),
+                BotCommand("start",     "👋 Початок"),
+                BotCommand("events",    "📅 Події цього місяця"),
+                BotCommand("my",        "🔔 Мої підписки"),
+                BotCommand("subscribe", "📌 Підписатись на категорію"),
+                BotCommand("settings",  "⚙️ Налаштування"),
             ],
         }
-        # Set default menu (English) for all users
+        # Default menu for users with no matched language
         await application.bot.set_my_commands(commands["en"])
-        # Set language-specific menus
-        from telegram import BotCommandScopeAllPrivateChats
+        # Language-specific menus
         for lang_code, cmds in commands.items():
             try:
                 await application.bot.set_my_commands(
