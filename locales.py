@@ -773,6 +773,64 @@ STRINGS = {
 }
 
 
+    "card_spots": {
+        "en": "spots", "ru": "мест", "el": "θέσεις", "uk": "місць",
+    },
+    "step_preview": {
+        "en": "Step 5/5: *Preview* (updated)",
+        "ru": "Шаг 5/5: *Превью* (обновлено)",
+        "el": "Βήμα 5/5: *Προεπισκόπηση* (ενημερώθηκε)",
+        "uk": "Крок 5/5: *Перегляд* (оновлено)",
+    },
+    "preview_ok": {
+        "en": "Everything correct?",
+        "ru": "Всё верно?",
+        "el": "Όλα σωστά;",
+        "uk": "Все вірно?",
+    },
+    "btn_submit": {
+        "en": "📤 Submit for moderation",
+        "ru": "📤 Отправить на модерацию",
+        "el": "📤 Υποβολή για έλεγχο",
+        "uk": "📤 Надіслати на модерацію",
+    },
+    "btn_edit_more": {
+        "en": "✏️ Edit more",
+        "ru": "✏️ Исправить ещё",
+        "el": "✏️ Περισσότερες διορθώσεις",
+        "uk": "✏️ Виправити ще",
+    },
+    "btn_cancel_str": {
+        "en": "🗑 Cancel",
+        "ru": "🗑 Отмена",
+        "el": "🗑 Ακύρωση",
+        "uk": "🗑 Скасувати",
+    },
+    "start_confirmed": {
+        "en": "Start: *{dt}* ✓\n\nMulti-day event?",
+        "ru": "Начало: *{dt}* ✓\n\nМногодневное событие?",
+        "el": "Έναρξη: *{dt}* ✓\n\nΠολυήμερη εκδήλωση;",
+        "uk": "Початок: *{dt}* ✓\n\nБагатоденна подія?",
+    },
+    "subcat_unsub": {
+        "en": "Unsubscribed from {cat}",
+        "ru": "Отписка от {cat}",
+        "el": "Κατάργηση εγγραφής από {cat}",
+        "uk": "Відписка від {cat}",
+    },
+    "subcat_sub": {
+        "en": "Subscribed to {cat}",
+        "ru": "Подписка на {cat}",
+        "el": "Εγγραφή σε {cat}",
+        "uk": "Підписка на {cat}",
+    },
+    "event_status_info": {
+        "en": "{icon} *{title}*\nStatus: {status}\n👥 Subscribers: {count}\n{reject}",
+        "ru": "{icon} *{title}*\nСтатус: {status}\n👥 Подписчиков: {count}\n{reject}",
+        "el": "{icon} *{title}*\nΚατάσταση: {status}\n👥 Συνδρομητές: {count}\n{reject}",
+        "uk": "{icon} *{title}*\nСтатус: {status}\n👥 Підписників: {count}\n{reject}",
+    },
+
 def s(lang: str, key: str, **kwargs) -> str:
     """
     Return localised string for given lang and key.

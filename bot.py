@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from locales import s, LANG_PICKER_KEYBOARD
 
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup,
+    Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeDefault,
 )
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
@@ -173,13 +173,13 @@ def maps_url(city: str, address: str) -> str:
     q = quote(f"{address} {city}".strip())
     return f"https://maps.google.com/?q={q}"
 
-def event_card_text(ev: dict) -> str:
+def event_card_text(ev: dict, lang: str = "ru") -> str:
     date_str   = format_date_ru(ev["date_start"])
     end_str    = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
-    limit      = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
+    limit      = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
     fmt_label  = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    reg_line   = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
-    contact_line = f"\n📋 Контакт организатора: {ev['organizer_contacts']}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
+    reg_line   = f"\n{s(lang, 'card_organizer_reg', url=ev['external_url'])}" if ev.get("external_url") else ""
+    contact_line = f"\n{s(lang, 'card_organizer_contact', contact=ev['organizer_contacts'])}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
@@ -194,20 +194,19 @@ def event_card_text(ev: dict) -> str:
         f"{reg_line}\n\n"
         f"{ev['description']}\n\n"
         f"——————————————————\n\n"
-        f"[🔔 Подписаться на напоминание]({remind_url})\n"
-        f"[🌐 Страница события]({event_url})\n"
-        f"[📅 Добавить в Google Календарь]({gcal_url})\n"
-        f"⭐ Хочешь добавить своё событие? Напиши боту!"
+        f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
+        f"[{s(lang, 'card_event_page')}]({event_url})\n"
+        f"[{s(lang, 'card_add_to_calendar')}]({gcal_url})\n"
+        f"{s(lang, 'card_add_your_event')}"
     )
 
-def event_share_text(ev: dict) -> str:
-    """Готовый текст для репоста в Telegram-чат."""
+def event_share_text(ev: dict, lang: str = "ru") -> str:
     date_str   = format_date_ru(ev["date_start"])
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev['id']}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
-    organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
-    contact_line = f"\n📋 Контакт организатора: {ev['organizer_contacts']}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
+    organizer  = f"\n{s(lang, 'card_organizer_reg', url=ev['external_url'])}" if ev.get("external_url") else ""
+    contact_line = f"\n{s(lang, 'card_organizer_contact', contact=ev['organizer_contacts'])}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
     description = ev['description'][:300] + ('...' if len(ev['description']) > 300 else '')
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
@@ -219,10 +218,10 @@ def event_share_text(ev: dict) -> str:
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
-        f"[🔔 Подписаться на напоминание]({remind_url})\n"
-        f"[🌐 Страница события]({event_url})\n"
-        f"[📅 Добавить в Google Календарь]({gcal_url})\n"
-        f"⭐ Хочешь добавить своё событие? Напиши боту!"
+        f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
+        f"[{s(lang, 'card_event_page')}]({event_url})\n"
+        f"[{s(lang, 'card_add_to_calendar')}]({gcal_url})\n"
+        f"{s(lang, 'card_add_your_event')}"
     )
 
 def make_year_keyboard(prefix: str) -> InlineKeyboardMarkup:
@@ -232,8 +231,14 @@ def make_year_keyboard(prefix: str) -> InlineKeyboardMarkup:
         for y in range(now, now + 3)
     ]])
 
-def make_month_keyboard(prefix: str) -> InlineKeyboardMarkup:
-    months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]
+def make_month_keyboard(prefix: str, lang: str = "ru") -> InlineKeyboardMarkup:
+    months_map = {
+        "en": ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+        "ru": ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"],
+        "el": ["Ιαν","Φεβ","Μαρ","Απρ","Μαι","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"],
+        "uk": ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"],
+    }
+    months = months_map.get(lang, months_map["ru"])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(months[i+j], callback_data=f"{prefix}:{i+j+1}") for j in range(3)]
         for i in range(0, 12, 3)
@@ -267,7 +272,7 @@ def make_minute_keyboard(prefix: str) -> InlineKeyboardMarkup:
 
 async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_reply=False):
     """Отправляет карточку события с фото если есть."""
-    text  = event_card_text(ev)
+    text  = event_card_text(ev, get_user_lang(chat_id) if isinstance(chat_id, int) else "ru")
     cover = ev.get("cover_image_url") or ev.get("cover_file_id")
     try:
         if cover:
@@ -1078,7 +1083,7 @@ async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         )
         return EV_CATEGORY
 
-    return await _ask_category(query.message)
+    return await _ask_category(query.message, lang)
 
 async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
@@ -1111,7 +1116,7 @@ async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return EV_CATEGORY
 
-    return await _ask_category(update.message)
+    return await _ask_category(update.message, lang)
 
 async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1125,11 +1130,11 @@ async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["draft_id"]  = draft_id
     return await _ask_category(query.message)
 
-async def _ask_category(message) -> int:
+async def _ask_category(message, lang: str = "ru") -> int:
     buttons = [[InlineKeyboardButton(label, callback_data=f"cat:{cat_id}")]
                for cat_id, label in CATEGORIES.items()]
     await message.reply_text(
-        "Шаг 1/5: *Категория события?*",
+        s(lang, "step_category"),
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
@@ -1143,8 +1148,9 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
     ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
     await _save_draft(ctx)
+    lang = get_user_lang(q.from_user.id)
     await q.message.reply_text(
-        "Шаг 2/5: *Дата и время начала*\n\nВыбери год:",
+        s(lang, "step_date_start"),
         reply_markup=make_year_keyboard("sy"),
         parse_mode="Markdown"
     )
@@ -1155,7 +1161,7 @@ async def ev_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sy"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_month"), reply_markup=make_month_keyboard("sm"))
+    await q.message.reply_text(s(lang, "ask_month"), reply_markup=make_month_keyboard("sm", lang))
     return EV_MONTH
 
 async def ev_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1181,16 +1187,18 @@ async def ev_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
+    lang = get_user_lang(q.from_user.id)
     m  = int(q.data.split(":")[1])
     d  = ctx.user_data
     dt = datetime(d["_sy"], d["_sm"], d["_sd"], d["_sh"], m)
     ctx.user_data["new_event"]["date_start"] = dt.isoformat()
     await _save_draft(ctx)
+    lang = get_user_lang(q.from_user.id)
     await q.message.reply_text(
-        f"Начало: *{dt.strftime('%d %b %Y %H:%M')}* ✓\n\nМногодневное событие?",
+        s(lang, "start_confirmed", dt=dt.strftime('%d %b %Y %H:%M')),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("Да", callback_data="end:yes"),
-            InlineKeyboardButton("Нет", callback_data="end:no"),
+            InlineKeyboardButton(s(lang, "btn_yes"), callback_data="end:yes"),
+            InlineKeyboardButton(s(lang, "btn_no"),  callback_data="end:no"),
         ]]),
         parse_mode="Markdown"
     )
@@ -1200,7 +1208,7 @@ async def ev_end_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     if q.data == "end:no":
-        return await _ask_city(q.message, ctx)
+        return await _ask_city(q.message, ctx, lang)
     await q.message.reply_text(s(lang, "ask_end_year"), reply_markup=make_year_keyboard("ey"))
     return EV_END_YEAR
 
@@ -1208,7 +1216,7 @@ async def ev_end_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_ey"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_end_month"), reply_markup=make_month_keyboard("em"))
+    await q.message.reply_text(s(lang, "ask_end_month"), reply_markup=make_month_keyboard("em", lang))
     return EV_END_MONTH
 
 async def ev_end_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1238,14 +1246,14 @@ async def ev_end_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d  = ctx.user_data
     dt = datetime(d["_ey"], d["_em"], d["_ed"], d["_eh"], m)
     ctx.user_data["new_event"]["date_end"] = dt.isoformat()
-    return await _ask_city(q.message, ctx)
+    return await _ask_city(q.message, ctx, lang)
 
 # Шаг 3 — детали (город, адрес, лимит)
-async def _ask_city(message, ctx):
+async def _ask_city(message, ctx, lang: str = "ru"):
     buttons = [[InlineKeyboardButton(c, callback_data=f"city:{c}")]
                for c in ["Nicosia", "Limassol", "Larnaca", "Paphos", "Other"]]
     await message.reply_text(
-        "Шаг 3/5: *Город?*",
+        s(lang, "step_city"),
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown"
     )
@@ -1262,7 +1270,7 @@ async def ev_get_address(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     ctx.user_data["new_event"]["location_address"] = update.message.text
     await update.message.reply_text(
-        "Лимит участников?",
+        s(lang, "ask_limit"),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("10",          callback_data="limit:10"),
             InlineKeyboardButton("20",          callback_data="limit:20"),
@@ -1280,7 +1288,7 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.user_data["new_event"]["max_participants"] = val
     await _save_draft(ctx)
     await q.message.reply_text(
-        "Формат события?",
+        s(lang, "ask_format"),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
             InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="fmt:private"),
@@ -1289,6 +1297,7 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return EV_FORMAT
 
 async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
     await _save_draft(ctx)
@@ -1328,10 +1337,10 @@ async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return EV_PHOTO
 
     await update.message.reply_text(
-        "Есть ссылка на регистрацию?",
+        s(lang, "ask_has_reg_url"),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ Да", callback_data="reg:yes"),
-            InlineKeyboardButton("❌ Нет", callback_data="reg:no"),
+            InlineKeyboardButton(s(lang, "btn_yes"), callback_data="reg:yes"),
+            InlineKeyboardButton(s(lang, "btn_no"),  callback_data="reg:no"),
         ]])
     )
     return EV_URL
@@ -1347,10 +1356,7 @@ async def ev_reg_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(s(lang, "ask_reg_url"))
     else:
         ctx.user_data["_reg_mode"] = "contacts"
-        await query.message.reply_text(
-            "Как с тобой связаться для регистрации?\n"
-            "Напиши @username, ссылку, телефон или любой текст:"
-        )
+        await query.message.reply_text(s(lang, "ask_organizer_contacts"))
     return EV_URL
 
 async def ev_get_url(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1509,7 +1515,7 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     if field == "format":
         await query.message.reply_text(
-            "Формат события?",
+            s(lang, "ask_format"),
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="evv:official"),
                 InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="evv:private"),
@@ -1594,12 +1600,13 @@ async def ev_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def _show_preview(message, ev: dict):
     """Re-render the step-5 preview card with fresh data."""
+    lang = get_user_lang(message.chat.id)
     keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("📤 Отправить на модерацию", callback_data="ev_submit"),
-        InlineKeyboardButton("✏️ Исправить ещё",          callback_data="ev_edit"),
-        InlineKeyboardButton("🗑 Отмена",                  callback_data="ev_cancel"),
+        InlineKeyboardButton(s(lang, "btn_submit"),     callback_data="ev_submit"),
+        InlineKeyboardButton(s(lang, "btn_edit_more"),  callback_data="ev_edit"),
+        InlineKeyboardButton(s(lang, "btn_cancel_str"), callback_data="ev_cancel"),
     ]])
-    caption = f"Шаг 5/5: *Превью* (обновлено)\n\n{event_card_text(ev)}\n\nВсё верно?"
+    caption = f"{s(lang, 'step_preview')}\n\n{event_card_text(ev, lang)}\n\n{s(lang, 'preview_ok')}"
     cover = ev.get("cover_file_id") or ev.get("cover_image_url")
     try:
         if cover:
@@ -1724,7 +1731,7 @@ async def handle_share_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     event_id = query.data.split(":")[1]
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
 
-    share_text = event_share_text(ev)
+    share_text = event_share_text(ev, lang)
     await query.message.reply_text(
         s(lang, "share_announce", text=share_text),
         parse_mode="Markdown"
@@ -1771,11 +1778,12 @@ async def handle_ev_status_callback(update: Update, ctx: ContextTypes.DEFAULT_TY
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     subs = supabase.table("subscriptions").select("id", count="exact").eq("event_id", event_id).execute()
     icon = {"published": "✅", "pending": "⏳", "cancelled": "❌"}.get(ev["status"], "?")
+    lang = get_user_lang(query.from_user.id)
     await query.message.reply_text(
-        f"{icon} *{ev['title']}*\n"
-        f"Статус: {ev['status']}\n"
-        f"👥 Подписчиков: {subs.count}\n"
-        f"{'⚠️ ' + ev['reject_reason'] if ev.get('reject_reason') else ''}",
+        s(lang, "event_status_info",
+          icon=icon, title=ev['title'], status=ev['status'],
+          count=subs.count,
+          reject=('⚠️ ' + ev['reject_reason'] if ev.get('reject_reason') else '')),
         parse_mode="Markdown"
     )
 
@@ -1922,11 +1930,11 @@ async def handle_subcat_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("category", cat).execute()
     if existing.data:
         supabase.table("subscriptions").delete().eq("id", existing.data[0]["id"]).execute()
-        await query.answer(f"Отписка от {CATEGORIES[cat]}", show_alert=False)
+        await query.answer(s(lang, "subcat_unsub", cat=CATEGORIES[cat]), show_alert=False)
     else:
         get_or_create_user(tg_id, query.from_user.username)
         supabase.table("subscriptions").insert({"tg_id": tg_id, "category": cat}).execute()
-        await query.answer(f"Подписка на {CATEGORIES[cat]}", show_alert=False)
+        await query.answer(s(lang, "subcat_sub", cat=CATEGORIES[cat]), show_alert=False)
 
 
 # ─── Напоминания (UC-10: 7д и 1д) ───────────────────────────
@@ -1993,14 +2001,14 @@ async def job_draft_reminders(ctx: ContextTypes.DEFAULT_TYPE):
              .lte("created_at", cutoff).execute()
     for ev in drafts.data:
         try:
+            ev_lang = get_user_lang(ev["organizer_tg_id"])
             await ctx.bot.send_message(
                 ev["organizer_tg_id"],
-                f"📝 У тебя есть незавершённый черновик события!\n\n"
-                f"Категория: {CATEGORIES.get(ev.get('category', ''), '—')}\n"
-                f"Название: {ev.get('title', '(не указано)')}\n\n"
-                "Продолжи или удали его через /new_event",
+                s(ev_lang, "draft_reminder",
+                  cat=CATEGORIES.get(ev.get('category', ''), '—'),
+                  title=ev.get('title', '(untitled)')),
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("▶️ Продолжить", callback_data=f"draft_continue:{ev['id']}"),
+                    InlineKeyboardButton(s(ev_lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
                 ]])
             )
         except Exception:
@@ -2084,14 +2092,8 @@ async def handle_end_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE
         InlineKeyboardButton("✅ Да, закрыть регистрацию", callback_data=f"end_reg_confirm:{event_id}"),
         InlineKeyboardButton("❌ Отмена",                  callback_data=f"end_reg_cancel:{event_id}"),
     ]])
-    text = (
-        "🔒 *Закрыть регистрацию?*\n\n"
-        f"📌 *{ev['title']}*\n"
-        f"👥 Лимит: {ev['max_participants']} мест\n\n"
-        "Это обновит статус до *Full* на сайте и уведомит всех подписчиков."
-    )
     await query.message.reply_text(
-        text,
+        s(lang, "close_reg_confirm", title=ev["title"], limit=ev["max_participants"]),
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
@@ -2110,7 +2112,7 @@ async def handle_end_registration_confirm(update: Update, ctx: ContextTypes.DEFA
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
 
     await query.message.reply_text(
-        f"✅ Готово! *{ev['title']}* теперь отмечено как *Full* на сайте.",
+        s(lang, "reg_closed_done", title=ev["title"]),
         parse_mode="Markdown"
     )
     logger.info(f"registration_closed=true set for event {event_id}")
@@ -2120,16 +2122,10 @@ async def handle_end_registration_confirm(update: Update, ctx: ContextTypes.DEFA
     date_str = ev["date_start"][:16].replace("T", " ")
     for s in subs.data:
         try:
-            sub_text = (
-                "🔒 *Регистрация закрыта!*\n\n"
-                f"📌 *{ev['title']}*\n"
-                f"📅 {date_str}\n"
-                "👥 Все места заняты.\n\n"
-                "Увидимся на событии! 🎉"
-            )
+            sub_lang = get_user_lang(s["tg_id"])
             await ctx.bot.send_message(
                 s["tg_id"],
-                sub_text,
+                s(sub_lang, "reg_closed_notify", title=ev["title"], date=date_str),
                 parse_mode="Markdown"
             )
         except Exception as e:
@@ -2293,9 +2289,69 @@ def build_application() -> Application:
 
     # Cron-задачи
     job_queue: JobQueue = app.job_queue
-    job_queue.run_repeating(job_send_reminders,          interval=3600, first=60)   # каждый час
-    job_queue.run_repeating(job_organizer_reg_reminder,  interval=3600, first=90)   # каждый час
-    job_queue.run_repeating(job_draft_reminders, interval=3600, first=120)  # каждый час
+    job_queue.run_repeating(job_send_reminders,          interval=3600, first=60)
+    job_queue.run_repeating(job_organizer_reg_reminder,  interval=3600, first=90)
+    job_queue.run_repeating(job_draft_reminders, interval=3600, first=120)
+
+    # ── Bot menu commands (shown in Telegram's "/" menu) ──────
+    async def post_init(application: Application) -> None:
+        commands = {
+            "en": [
+                BotCommand("start",            "Start / change role"),
+                BotCommand("events",           "Upcoming events"),
+                BotCommand("my",               "My subscriptions"),
+                BotCommand("subscribe",        "Subscribe to categories"),
+                BotCommand("settings",         "⚙️ Settings / language"),
+                BotCommand("new_event",        "Add a new event"),
+                BotCommand("my_events",        "My events"),
+                BotCommand("request_organizer","Request organizer role"),
+            ],
+            "ru": [
+                BotCommand("start",            "Начало / сменить роль"),
+                BotCommand("events",           "Ближайшие события"),
+                BotCommand("my",               "Мои подписки"),
+                BotCommand("subscribe",        "Подписаться на категории"),
+                BotCommand("settings",         "⚙️ Настройки / язык"),
+                BotCommand("new_event",        "Добавить событие"),
+                BotCommand("my_events",        "Мои события"),
+                BotCommand("request_organizer","Запросить роль организатора"),
+            ],
+            "el": [
+                BotCommand("start",            "Έναρξη / αλλαγή ρόλου"),
+                BotCommand("events",           "Επερχόμενες εκδηλώσεις"),
+                BotCommand("my",               "Οι συνδρομές μου"),
+                BotCommand("subscribe",        "Εγγραφή σε κατηγορίες"),
+                BotCommand("settings",         "⚙️ Ρυθμίσεις / γλώσσα"),
+                BotCommand("new_event",        "Προσθήκη εκδήλωσης"),
+                BotCommand("my_events",        "Οι εκδηλώσεις μου"),
+                BotCommand("request_organizer","Αίτημα ρόλου διοργανωτή"),
+            ],
+            "uk": [
+                BotCommand("start",            "Початок / змінити роль"),
+                BotCommand("events",           "Найближчі події"),
+                BotCommand("my",               "Мої підписки"),
+                BotCommand("subscribe",        "Підписатись на категорії"),
+                BotCommand("settings",         "⚙️ Налаштування / мова"),
+                BotCommand("new_event",        "Додати подію"),
+                BotCommand("my_events",        "Мої події"),
+                BotCommand("request_organizer","Запит ролі організатора"),
+            ],
+        }
+        # Set default menu (English) for all users
+        await application.bot.set_my_commands(commands["en"])
+        # Set language-specific menus
+        from telegram import BotCommandScopeAllPrivateChats
+        for lang_code, cmds in commands.items():
+            try:
+                await application.bot.set_my_commands(
+                    cmds,
+                    scope=BotCommandScopeAllPrivateChats(),
+                    language_code=lang_code,
+                )
+            except Exception as e:
+                logger.warning(f"Could not set commands for {lang_code}: {e}")
+
+    app.post_init = post_init
 
     return app
 
