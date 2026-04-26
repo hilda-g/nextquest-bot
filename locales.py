@@ -310,6 +310,18 @@ STRINGS = {
         "el": "Χωρίς όριο",
         "uk": "Без ліміту",
     },
+    "btn_custom_limit": {
+        "en": "✏️ Custom number",
+        "ru": "✏️ Своё число",
+        "el": "✏️ Προσαρμοσμένο",
+        "uk": "✏️ Своє число",
+    },
+    "ask_custom_limit": {
+        "en": "Enter the participant limit as a number:",
+        "ru": "Введи лимит участников числом:",
+        "el": "Εισαγωγή αριθμού ορίου συμμετεχόντων:",
+        "uk": "Введи ліміт учасників числом:",
+    },
     "ask_format": {
         "en": "Event format?",
         "ru": "Формат события?",
@@ -821,6 +833,26 @@ STRINGS = {
         "el": "Εγγραφή σε {cat}",
         "uk": "Підписка на {cat}",
     },
+    # ── Category labels (used in wizard and subscribe flow) ───
+    "cat_boardgames": {"en": "🎲 Board Games", "ru": "🎲 Настолки",   "el": "🎲 Επιτραπέζια",  "uk": "🎲 Настільні ігри"},
+    "cat_larp":       {"en": "⚔️ LARP",        "ru": "⚔️ LARP",       "el": "⚔️ LARP",          "uk": "⚔️ LARP"},
+    "cat_festival":   {"en": "🎪 Festival",     "ru": "🎪 Фестивали",  "el": "🎪 Φεστιβάλ",     "uk": "🎪 Фестивалі"},
+    "cat_rpg":        {"en": "🎭 RPG",          "ru": "🎭 RPG",        "el": "🎭 RPG",            "uk": "🎭 RPG"},
+    "cat_cosplay":    {"en": "👗 Cosplay",       "ru": "👗 Косплей",    "el": "👗 Cosplay",        "uk": "👗 Косплей"},
+    "cat_other":      {"en": "🃏 Other",         "ru": "🃏 Другое",     "el": "🃏 Άλλο",           "uk": "🃏 Інше"},
+    # ── Edit field picker button labels ──────────────────────
+    "ef_title":       {"en": "📝 Title",       "ru": "📝 Название",    "el": "📝 Τίτλος",         "uk": "📝 Назва"},
+    "ef_description": {"en": "📄 Description", "ru": "📄 Описание",    "el": "📄 Περιγραφή",      "uk": "📄 Опис"},
+    "ef_category":    {"en": "🎲 Category",    "ru": "🎲 Категория",   "el": "🎲 Κατηγορία",      "uk": "🎲 Категорія"},
+    "ef_city":        {"en": "📍 City",         "ru": "📍 Город",       "el": "📍 Πόλη",            "uk": "📍 Місто"},
+    "ef_address":     {"en": "🏠 Address",      "ru": "🏠 Адрес",       "el": "🏠 Διεύθυνση",      "uk": "🏠 Адреса"},
+    "ef_limit":       {"en": "👥 Limit",        "ru": "👥 Лимит",       "el": "👥 Όριο",            "uk": "👥 Ліміт"},
+    "ef_date_start":  {"en": "🗓 Start date",   "ru": "🗓 Дата начала", "el": "🗓 Ημ. έναρξης",    "uk": "🗓 Дата початку"},
+    "ef_date_end":    {"en": "🗓 End date",      "ru": "🗓 Дата конца",  "el": "🗓 Ημ. λήξης",      "uk": "🗓 Дата кінця"},
+    "ef_reg_url":     {"en": "🔗 Reg. link",    "ru": "🔗 Ссылка рег.", "el": "🔗 Σύνδ. εγγρ.",    "uk": "🔗 Посилання рег."},
+    "ef_contact":     {"en": "📋 Org. contact", "ru": "📋 Контакт орг.","el": "📋 Επαφή διοργ.",   "uk": "📋 Контакт орг."},
+    "ef_cover":       {"en": "🖼 Cover",         "ru": "🖼 Обложка",     "el": "🖼 Εξώφυλλο",       "uk": "🖼 Обкладинка"},
+    "ef_format":      {"en": "🎉 Format",        "ru": "🎉 Формат",      "el": "🎉 Μορφή",           "uk": "🎉 Формат"},
     "subcat_sub_confirm": {
         "en": "📌 You're now subscribed to *{cat}*!\n\nYou'll be notified when new events in this category are published.",
         "ru": "📌 Ты подписан на *{cat}*!\n\nМы уведомим тебя когда появятся новые события в этой категории.",
@@ -849,6 +881,12 @@ def s(lang: str, key: str, **kwargs) -> str:
         except KeyError:
             pass
     return text
+
+
+def cat_label(lang: str, cat_id: str) -> str:
+    """Return localised category label for given cat_id."""
+    key = f"cat_{cat_id}"
+    return s(lang, key)
 
 
 LANG_PICKER_KEYBOARD = InlineKeyboardMarkup([[

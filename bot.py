@@ -14,7 +14,7 @@ import os
 import logging
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
-from locales import s, LANG_PICKER_KEYBOARD
+from locales import s, LANG_PICKER_KEYBOARD, cat_label
 
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeDefault,
@@ -104,7 +104,9 @@ REJECT_REASONS = [
     MOD_EDIT_FIELD, MOD_EDIT_VALUE,
     # Organizer preview inline-edit states
     EV_EDIT_FIELD, EV_EDIT_VALUE,
-) = range(25)
+    # Custom limit input
+    EV_LIMIT_CUSTOM,
+) = range(26)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -362,7 +364,6 @@ async def _show_main_menu(message, role: str, lang: str = "ru"):
                 [InlineKeyboardButton(s(lang, "btn_new_event"),  callback_data="menu:new_event")],
                 [InlineKeyboardButton(s(lang, "btn_my_events"),  callback_data="menu:my_events")],
                 [InlineKeyboardButton(s(lang, "btn_feedback"),   callback_data="menu:feedback")],
-                [InlineKeyboardButton(s(lang, "btn_my_subs"),    callback_data="menu:my")],
             ])
         )
     else:
@@ -1131,8 +1132,8 @@ async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return await _ask_category(query.message)
 
 async def _ask_category(message, lang: str = "ru") -> int:
-    buttons = [[InlineKeyboardButton(label, callback_data=f"cat:{cat_id}")]
-               for cat_id, label in CATEGORIES.items()]
+    buttons = [[InlineKeyboardButton(cat_label(lang, cat_id), callback_data=f"cat:{cat_id}")]
+               for cat_id in CATEGORIES]
     await message.reply_text(
         s(lang, "step_category"),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -1271,23 +1272,48 @@ async def ev_get_address(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"]["location_address"] = update.message.text
     await update.message.reply_text(
         s(lang, "ask_limit"),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("10",          callback_data="limit:10"),
-            InlineKeyboardButton("20",          callback_data="limit:20"),
-            InlineKeyboardButton("50",          callback_data="limit:50"),
-            InlineKeyboardButton(s(lang, "btn_no_limit"),  callback_data="limit:0"),
-        ]])
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("10",                        callback_data="limit:10"),
+                InlineKeyboardButton("20",                        callback_data="limit:20"),
+                InlineKeyboardButton("50",                        callback_data="limit:50"),
+                InlineKeyboardButton(s(lang, "btn_no_limit"),     callback_data="limit:0"),
+            ],
+            [InlineKeyboardButton(s(lang, "btn_custom_limit"),    callback_data="limit:custom")],
+        ])
     )
     return EV_LIMIT
 
 async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    val = int(q.data.split(":")[1])
+    val_str = q.data.split(":")[1]
+    if val_str == "custom":
+        await q.message.reply_text(s(lang, "ask_custom_limit"))
+        return EV_LIMIT_CUSTOM
+    val = int(val_str)
     if val > 0:
         ctx.user_data["new_event"]["max_participants"] = val
     await _save_draft(ctx)
     await q.message.reply_text(
+        s(lang, "ask_format"),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
+            InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="fmt:private"),
+        ]])
+    )
+    return EV_FORMAT
+
+async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle free-text custom participant limit input."""
+    lang = get_user_lang(update.effective_user.id)
+    text = update.message.text.strip()
+    if not text.isdigit() or int(text) <= 0:
+        await update.message.reply_text(s(lang, "invalid_number"))
+        return EV_LIMIT_CUSTOM
+    ctx.user_data["new_event"]["max_participants"] = int(text)
+    await _save_draft(ctx)
+    await update.message.reply_text(
         s(lang, "ask_format"),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
@@ -1397,18 +1423,18 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             s(lang, "edit_what"),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📝 Название",    callback_data="evf:title"),
-                 InlineKeyboardButton("📄 Описание",    callback_data="evf:description")],
-                [InlineKeyboardButton("🎲 Категория",   callback_data="evf:category"),
-                 InlineKeyboardButton("📍 Город",       callback_data="evf:location_city")],
-                [InlineKeyboardButton("🏠 Адрес",       callback_data="evf:location_address"),
-                 InlineKeyboardButton("👥 Лимит",       callback_data="evf:max_participants")],
-                [InlineKeyboardButton("🗓 Дата начала", callback_data="evf:date_start"),
-                 InlineKeyboardButton("🗓 Дата конца",  callback_data="evf:date_end")],
-                [InlineKeyboardButton("🔗 Ссылка рег.", callback_data="evf:external_url"),
-                 InlineKeyboardButton("📋 Контакт орг.", callback_data="evf:organizer_contacts")],
-                [InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
-                [InlineKeyboardButton("🎉 Формат",      callback_data="evf:format"),
+                [InlineKeyboardButton(s(lang, "ef_title"),        callback_data="evf:title"),
+                 InlineKeyboardButton(s(lang, "ef_description"),  callback_data="evf:description")],
+                [InlineKeyboardButton(s(lang, "ef_category"),     callback_data="evf:category"),
+                 InlineKeyboardButton(s(lang, "ef_city"),         callback_data="evf:location_city")],
+                [InlineKeyboardButton(s(lang, "ef_address"),      callback_data="evf:location_address"),
+                 InlineKeyboardButton(s(lang, "ef_limit"),        callback_data="evf:max_participants")],
+                [InlineKeyboardButton(s(lang, "ef_date_start"),   callback_data="evf:date_start"),
+                 InlineKeyboardButton(s(lang, "ef_date_end"),     callback_data="evf:date_end")],
+                [InlineKeyboardButton(s(lang, "ef_reg_url"),      callback_data="evf:external_url"),
+                 InlineKeyboardButton(s(lang, "ef_contact"),      callback_data="evf:organizer_contacts")],
+                [InlineKeyboardButton(s(lang, "ef_cover"),        callback_data="evf:cover_image_url")],
+                [InlineKeyboardButton(s(lang, "ef_format"),       callback_data="evf:format"),
                  InlineKeyboardButton(s(lang, "edit_back_to_preview"), callback_data="evf:done")],
             ])
         )
@@ -1490,8 +1516,8 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["ev_editing_field"] = field
 
     if field == "category":
-        buttons = [[InlineKeyboardButton(lbl, callback_data=f"evv:{cat_id}")]
-                   for cat_id, lbl in CATEGORIES.items()]
+        buttons = [[InlineKeyboardButton(cat_label(lang, cat_id), callback_data=f"evv:{cat_id}")]
+                   for cat_id in CATEGORIES]
         await query.message.reply_text(s(lang, "ask_select_category"), reply_markup=InlineKeyboardMarkup(buttons))
         return EV_EDIT_VALUE
 
@@ -1913,10 +1939,9 @@ async def _cmd_subscribe_inner(message, tg_id: int):
                .eq("tg_id", tg_id).not_.is_("category", "null").execute()
     existing_cats = {sub["category"] for sub in existing.data}
     buttons = []
-    for cat_id, label in CATEGORIES.items():
+    for cat_id in CATEGORIES:
         check = "✅ " if cat_id in existing_cats else ""
-        buttons.append([InlineKeyboardButton(f"{check}{label}", callback_data=f"subcat:{cat_id}")])
-    buttons.append([InlineKeyboardButton(s(lang, "btn_done"), callback_data="subcat:done")])
+        buttons.append([InlineKeyboardButton(f"{check}{cat_label(lang, cat_id)}", callback_data=f"subcat:{cat_id}")])
     await message.reply_text(s(lang, "select_categories"), reply_markup=InlineKeyboardMarkup(buttons))
 
 async def cmd_subscribe_categories(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1936,13 +1961,13 @@ async def handle_subcat_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("category", cat).execute()
     if existing.data:
         supabase.table("subscriptions").delete().eq("id", existing.data[0]["id"]).execute()
-        await query.answer(s(lang, "subcat_unsub", cat=CATEGORIES[cat]), show_alert=False)
+        await query.answer(s(lang, "subcat_unsub", cat=cat_label(lang, cat)), show_alert=False)
     else:
         get_or_create_user(tg_id, query.from_user.username)
         supabase.table("subscriptions").insert({"tg_id": tg_id, "category": cat}).execute()
-        await query.answer(s(lang, "subcat_sub", cat=CATEGORIES[cat]), show_alert=False)
+        await query.answer(s(lang, "subcat_sub", cat=cat_label(lang, cat)), show_alert=False)
         await query.message.reply_text(
-            s(lang, "subcat_sub_confirm", cat=CATEGORIES[cat]),
+            s(lang, "subcat_sub_confirm", cat=cat_label(lang, cat)),
             parse_mode="Markdown"
         )
 
@@ -2201,8 +2226,9 @@ def build_application() -> Application:
             EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^emin:")],
             EV_CITY:       [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
             EV_ADDRESS:    [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
-            EV_LIMIT:      [CallbackQueryHandler(ev_get_limit,     pattern="^limit:")],
-            EV_FORMAT:     [CallbackQueryHandler(ev_get_format,    pattern="^fmt:")],
+            EV_LIMIT:        [CallbackQueryHandler(ev_get_limit,        pattern="^limit:")],
+            EV_LIMIT_CUSTOM: [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_limit_custom)],
+            EV_FORMAT:       [CallbackQueryHandler(ev_get_format,    pattern="^fmt:")],
             EV_TITLE:      [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_title)],
             EV_DESC:       [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
             EV_PHOTO:      [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
