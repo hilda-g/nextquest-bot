@@ -114,6 +114,7 @@ def build_new_event_message(ev: dict) -> str:
     gcal_url     = build_google_calendar_url(ev)
     event_url    = f"{SITE_URL}/events/{ev['id']}"
     remind_url   = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
         f"✨ *Событие в календаре*\n\n"
@@ -129,7 +130,7 @@ def build_new_event_message(ev: dict) -> str:
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
         f"[🌐 Страница события]({event_url})\n"
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
-        f"⭐ Хочешь добавить своё событие? Напиши боту!"
+        f"⭐ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
     )
 
 

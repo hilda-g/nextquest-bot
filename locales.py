@@ -751,10 +751,10 @@ STRINGS = {
         "uk": "📅 Додати до Google Календаря",
     },
     "card_add_your_event": {
-        "en": "⭐ Want to add your own event? Message the bot!",
-        "ru": "⭐ Хочешь добавить своё событие? Напиши боту!",
-        "el": "⭐ Θέλεις να προσθέσεις τη δική σου εκδήλωση; Γράψε στο bot!",
-        "uk": "⭐ Хочеш додати свою подію? Напиши боту!",
+        "en": "⭐ Want to add your own event? [Message the bot!]({bot_url})",
+        "ru": "⭐ Хочешь добавить своё событие? [Напиши боту!]({bot_url})",
+        "el": "⭐ Θέλεις να προσθέσεις τη δική σου εκδήλωση; [Γράψε στο bot!]({bot_url})",
+        "uk": "⭐ Хочеш додати свою подію? [Напиши боту!]({bot_url})",
     },
     "card_organizer_reg": {
         "en": "⭐ Organizer: [Register]({url})",
