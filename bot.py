@@ -1148,6 +1148,7 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.user_data["new_event"] = {}
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
     ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
+    ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
     await _save_draft(ctx)
     lang = get_user_lang(q.from_user.id)
     await q.message.reply_text(
@@ -1650,7 +1651,7 @@ _EVENT_DB_COLUMNS = {
     "date_start", "date_end", "timezone",
     "cover_image_url",
     "location_city", "location_address", "location_lat", "location_lng",
-    "organizer_tg_id", "status",
+    "organizer_tg_id", "organizer_username", "status",
     "max_participants", "external_url", "organizer_contacts",
     "reject_reason", "format",
 }
@@ -1746,6 +1747,9 @@ async def handle_cancel_reason(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             )
         except Exception:
             pass
+
+    # Clean up event subscriptions immediately after notifying
+    supabase.table("subscriptions").delete().eq("event_id", event_id).execute()
 
 
 # ─── Поделиться (UC-08) ──────────────────────────────────────
