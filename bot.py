@@ -14,6 +14,7 @@ import os
 import logging
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+from locales import s, LANG_PICKER_KEYBOARD
 
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -129,92 +130,6 @@ def get_user_lang(tg_id: int) -> str:
 def set_user_lang(tg_id: int, lang: str):
     supabase.table("users").update({"language": lang}).eq("tg_id", tg_id).execute()
 
-# ─── Bot strings (start flow + settings) ─────────────────────
-BOT_STRINGS = {
-    "en": {
-        "welcome":        "👋 Hi! I'm *NextQuest* — your guide to geek events in Cyprus.\n\nFirst, choose your language:",
-        "lang_set":       "🇬🇧 Language set to English.",
-        "who_are_you":    "Who are you?",
-        "btn_participant":"🎲 Participant — looking for events",
-        "btn_organizer":  "🎪 Organizer — adding events",
-        "menu_organizer": "Organizer menu:",
-        "menu_participant":"Menu:",
-        "btn_new_event":  "✨ Add event",
-        "btn_my_events":  "📋 My events",
-        "btn_feedback":   "📬 Feedback",
-        "btn_my_subs":    "🔔 My subscriptions",
-        "btn_upcoming":   "🗓 Upcoming events",
-        "btn_subscribe":  "📌 Subscribe to topic",
-        "no_org_role":    "🎪 To add events you need moderator verification.\n\nSend a request with /request\\_organizer",
-        "settings_title": "⚙️ Settings",
-        "settings_lang":  "🌐 Change language",
-        "lang_changed":   "✅ Language changed to English 🇬🇧",
-    },
-    "ru": {
-        "welcome":        "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nСначала выбери язык:",
-        "lang_set":       "🇷🇺 Язык установлен: Русский.",
-        "who_are_you":    "Кто ты?",
-        "btn_participant":"🎲 Участник — ищу события",
-        "btn_organizer":  "🎪 Организатор — добавляю события",
-        "menu_organizer": "Меню организатора:",
-        "menu_participant":"Меню:",
-        "btn_new_event":  "✨ Добавить событие",
-        "btn_my_events":  "📋 Мои события",
-        "btn_feedback":   "📬 Обратная связь",
-        "btn_my_subs":    "🔔 Мои подписки",
-        "btn_upcoming":   "🗓 Ближайшие события",
-        "btn_subscribe":  "📌 Подписаться на тему",
-        "no_org_role":    "🎪 Чтобы добавлять события, нужна верификация модератором.\n\nОтправь запрос командой /request\\_organizer",
-        "settings_title": "⚙️ Настройки",
-        "settings_lang":  "🌐 Сменить язык",
-        "lang_changed":   "✅ Язык изменён на Русский 🇷🇺",
-    },
-    "el": {
-        "welcome":        "👋 Γεια! Είμαι το *NextQuest* — ο οδηγός geek εκδηλώσεων στην Κύπρο.\n\nΕπίλεξε γλώσσα:",
-        "lang_set":       "🇬🇷 Γλώσσα: Ελληνικά.",
-        "who_are_you":    "Ποιος είσαι;",
-        "btn_participant":"🎲 Συμμετέχων — ψάχνω εκδηλώσεις",
-        "btn_organizer":  "🎪 Διοργανωτής — προσθέτω εκδηλώσεις",
-        "menu_organizer": "Μενού διοργανωτή:",
-        "menu_participant":"Μενού:",
-        "btn_new_event":  "✨ Προσθήκη εκδήλωσης",
-        "btn_my_events":  "📋 Οι εκδηλώσεις μου",
-        "btn_feedback":   "📬 Σχόλια",
-        "btn_my_subs":    "🔔 Οι συνδρομές μου",
-        "btn_upcoming":   "🗓 Επερχόμενες εκδηλώσεις",
-        "btn_subscribe":  "📌 Εγγραφή σε θέμα",
-        "no_org_role":    "🎪 Για να προσθέσεις εκδηλώσεις χρειάζεται επαλήθευση.\n\nΑπόστειλε αίτημα με /request\\_organizer",
-        "settings_title": "⚙️ Ρυθμίσεις",
-        "settings_lang":  "🌐 Αλλαγή γλώσσας",
-        "lang_changed":   "✅ Η γλώσσα άλλαξε σε Ελληνικά 🇬🇷",
-    },
-    "uk": {
-        "welcome":        "👋 Привіт! Я *NextQuest* — бот подій гік-спільноти Кіпру.\n\nСпочатку обери мову:",
-        "lang_set":       "🇺🇦 Мову встановлено: Українська.",
-        "who_are_you":    "Хто ти?",
-        "btn_participant":"🎲 Учасник — шукаю події",
-        "btn_organizer":  "🎪 Організатор — додаю події",
-        "menu_organizer": "Меню організатора:",
-        "menu_participant":"Меню:",
-        "btn_new_event":  "✨ Додати подію",
-        "btn_my_events":  "📋 Мої події",
-        "btn_feedback":   "📬 Зворотній зв'язок",
-        "btn_my_subs":    "🔔 Мої підписки",
-        "btn_upcoming":   "🗓 Найближчі події",
-        "btn_subscribe":  "📌 Підписатись на тему",
-        "no_org_role":    "🎪 Щоб додавати події, потрібна верифікація модератором.\n\nНадішли запит командою /request\\_organizer",
-        "settings_title": "⚙️ Налаштування",
-        "settings_lang":  "🌐 Змінити мову",
-        "lang_changed":   "✅ Мову змінено на Українську 🇺🇦",
-    },
-}
-
-LANG_PICKER_KEYBOARD = InlineKeyboardMarkup([[
-    InlineKeyboardButton("🇬🇧 EN", callback_data="setlang:en"),
-    InlineKeyboardButton("🇷🇺 RU", callback_data="setlang:ru"),
-    InlineKeyboardButton("🇬🇷 GR", callback_data="setlang:el"),
-    InlineKeyboardButton("🇺🇦 UK", callback_data="setlang:uk"),
-]])
 
 def is_moderator(tg_id: int) -> bool:
     u = get_user(tg_id)
@@ -398,23 +313,20 @@ async def handle_setlang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang  = query.data.split(":")[1]
     tg_id = query.from_user.id
     set_user_lang(tg_id, lang)
-    s = BOT_STRINGS[lang]
 
     # Decide context: from_start flag set by cmd_start, absent when from /settings
     from_start = ctx.user_data.pop("lang_picker_from_start", False)
     if from_start:
-        # Show role picker in chosen language
         await query.message.reply_text(
-            s["welcome"],
+            s(lang, "welcome"),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(s["btn_participant"], callback_data="onboard:participant"),
-                InlineKeyboardButton(s["btn_organizer"],  callback_data="onboard:organizer"),
+                InlineKeyboardButton(s(lang, "btn_participant"), callback_data="onboard:participant"),
+                InlineKeyboardButton(s(lang, "btn_organizer"),  callback_data="onboard:organizer"),
             ]]),
             parse_mode="Markdown"
         )
     else:
-        # From /settings — just confirm
-        await query.message.reply_text(s["lang_changed"])
+        await query.message.reply_text(s(lang, "lang_changed"))
 
 async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query  = update.callback_query
@@ -430,7 +342,7 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         actual_role = db_user["role"] if db_user else "participant"
         if actual_role not in ("organizer", "moderator"):
             await query.message.reply_text(
-                BOT_STRINGS[lang]["no_org_role"],
+                s(lang, "no_org_role"),
                 parse_mode="Markdown"
             )
             await _show_main_menu(query.message, "participant", lang)
@@ -438,28 +350,28 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await _show_main_menu(query.message, actual_role, lang)
 
 async def _show_main_menu(message, role: str, lang: str = "ru"):
-    s = BOT_STRINGS[lang]
     if role in ("organizer", "moderator"):
         await message.reply_text(
-            s["menu_organizer"],
+            s(lang, "menu_organizer"),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(s["btn_new_event"],  callback_data="menu:new_event")],
-                [InlineKeyboardButton(s["btn_my_events"],  callback_data="menu:my_events")],
-                [InlineKeyboardButton(s["btn_feedback"],   callback_data="menu:feedback")],
-                [InlineKeyboardButton(s["btn_my_subs"],    callback_data="menu:my")],
+                [InlineKeyboardButton(s(lang, "btn_new_event"),  callback_data="menu:new_event")],
+                [InlineKeyboardButton(s(lang, "btn_my_events"),  callback_data="menu:my_events")],
+                [InlineKeyboardButton(s(lang, "btn_feedback"),   callback_data="menu:feedback")],
+                [InlineKeyboardButton(s(lang, "btn_my_subs"),    callback_data="menu:my")],
             ])
         )
     else:
         await message.reply_text(
-            s["menu_participant"],
+            s(lang, "menu_participant"),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(s["btn_upcoming"],  callback_data="menu:events")],
-                [InlineKeyboardButton(s["btn_my_subs"],   callback_data="menu:my")],
-                [InlineKeyboardButton(s["btn_subscribe"], callback_data="menu:subscribe")],
+                [InlineKeyboardButton(s(lang, "btn_upcoming"),  callback_data="menu:events")],
+                [InlineKeyboardButton(s(lang, "btn_my_subs"),   callback_data="menu:my")],
+                [InlineKeyboardButton(s(lang, "btn_subscribe"), callback_data="menu:subscribe")],
             ])
         )
 
 async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     action = query.data.split(":")[1]
@@ -469,7 +381,7 @@ async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         # Guard check — wizard entry point will do the real work.
         # This handler just blocks unverified users early.
         if not is_organizer(query.from_user.id):
-            return await fake.reply_text("⛔ Нужна верификация организатора. Отправь /request_organizer")
+            return await fake.reply_text(s(lang, "need_verification"))
         # Falls through to the ConversationHandler entry point below (menu:new_event)
         # Nothing to return here — the wizard entry point picks it up
     elif action == "my_events":
@@ -487,9 +399,10 @@ async def handle_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Deep-link для участника (UC-10) ────────────────────────
 
 async def _show_event_deeplink(update: Update, ctx: ContextTypes.DEFAULT_TYPE, event_id: str):
+    lang = get_user_lang(update.effective_user.id)
     res = supabase.table("events").select("*").eq("id", event_id).execute()
     if not res.data:
-        return await update.message.reply_text("❌ Событие не найдено.")
+        return await update.message.reply_text(s(lang, "event_not_found"))
     ev = res.data[0]
     tg_id = update.effective_user.id
 
@@ -497,12 +410,12 @@ async def _show_event_deeplink(update: Update, ctx: ContextTypes.DEFAULT_TYPE, e
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("event_id", event_id).execute()
     if existing.data:
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("❌ Отписаться", callback_data=f"unsub_ev:{existing.data[0]['id']}"),
+            InlineKeyboardButton(s(lang, "btn_unsubscribe"), callback_data=f"unsub_ev:{existing.data[0]['id']}"),
         ]])
         return await send_event_card(update.message, None, ev, keyboard, is_reply=True)
 
     keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔔 Подписаться на напоминание", callback_data=f"subev:{event_id}"),
+        InlineKeyboardButton(s(lang, "card_subscribe_reminder"), callback_data=f"subev:{event_id}"),
     ]])
     await send_event_card(update.message, None, ev, keyboard, is_reply=True)
 
@@ -512,11 +425,10 @@ async def _show_event_deeplink(update: Update, ctx: ContextTypes.DEFAULT_TYPE, e
 async def cmd_settings(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     tg_id = update.effective_user.id
     lang  = get_user_lang(tg_id)
-    s     = BOT_STRINGS[lang]
     await update.message.reply_text(
-        s["settings_title"],
+        s(lang, "settings_title"),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s["settings_lang"], callback_data="settings:lang"),
+            InlineKeyboardButton(s(lang, "settings_lang"), callback_data="settings:lang"),
         ]])
     )
 
@@ -534,13 +446,14 @@ async def handle_settings_callback(update: Update, ctx: ContextTypes.DEFAULT_TYP
 # ─── /request_organizer (UC-00) ─────────────────────────────
 
 async def cmd_request_organizer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     user = update.effective_user
     get_or_create_user(user.id, user.username)
 
     if is_organizer(user.id):
-        return await update.message.reply_text("✅ Ты уже организатор!")
+        return await update.message.reply_text(s(lang, "already_organizer"))
 
-    await update.message.reply_text("📬 Запрос отправлен модератору. Ожидай подтверждения.")
+    await update.message.reply_text(s(lang, "org_request_sent"))
     await ctx.bot.send_message(
         MODERATOR_ID,
         f"📬 Запрос на роль организатора\n\n"
@@ -567,7 +480,7 @@ async def handle_org_request(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         try:
             await ctx.bot.send_message(
                 tg_id,
-                "🎉 Твой запрос одобрен! Теперь ты организатор NextQuest.\n\nИспользуй /new_event чтобы добавить событие."
+                s(get_user_lang(tg_id), "org_request_approved")
             )
         except Exception:
             pass
@@ -575,7 +488,7 @@ async def handle_org_request(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(None)
         await query.message.reply_text("❌ Запрос отклонён.")
         try:
-            await ctx.bot.send_message(tg_id, "❌ Твой запрос на роль организатора отклонён. Напиши модератору если есть вопросы.")
+            await ctx.bot.send_message(tg_id, s(get_user_lang(tg_id), "org_request_denied"))
         except Exception:
             pass
 
@@ -607,7 +520,7 @@ async def handle_admin_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif action == "stats":
         await _show_stats(query.message)
     elif action == "add_org_prompt":
-        await query.message.reply_text("Отправь: /add_organizer @username")
+        await query.message.reply_text("Usage: /add_organizer @username")
     elif action == "manage_events":
         await _show_mod_events(query.message)
 
@@ -653,7 +566,7 @@ async def _show_mod_events(message, offset: int = 0):
           .range(offset, offset + 4).execute()
 
     if not res.data:
-        return await message.reply_text("Событий не найдено.")
+        return await message.reply_text("No events found.")
 
     for ev in res.data:
         icon = {"published": "✅", "pending": "⏳", "cancelled": "❌"}.get(ev["status"], "?")
@@ -676,7 +589,7 @@ async def _show_mod_events(message, offset: int = 0):
     if len(res.data) == 5:
         nav_buttons.append(InlineKeyboardButton("Вперёд ▶️", callback_data=f"mod_page:{offset + 5}"))
     if nav_buttons:
-        await message.reply_text("Навигация:", reply_markup=InlineKeyboardMarkup([nav_buttons]))
+        await message.reply_text("Navigation:", reply_markup=InlineKeyboardMarkup([nav_buttons]))
 
 
 async def handle_mod_page(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -692,6 +605,7 @@ async def handle_mod_page(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def handle_mod_delete(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Запрашивает подтверждение удаления события."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     if not is_moderator(query.from_user.id):
@@ -699,7 +613,7 @@ async def handle_mod_delete(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     event_id = query.data.split(":")[1]
     ev = supabase.table("events").select("id, title, status, organizer_tg_id").eq("id", event_id).single().execute().data
     if not ev:
-        return await query.message.reply_text("❌ Событие не найдено.")
+        return await query.message.reply_text(s(lang, "event_not_found"))
 
     await query.message.reply_text(
         f"⚠️ Удалить событие *{ev['title']}* (#{ev['id']}) из базы данных?\n\n"
@@ -714,18 +628,19 @@ async def handle_mod_delete(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def handle_mod_delete_confirm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Выполняет удаление события из Supabase — сайт обновится автоматически."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     if not is_moderator(query.from_user.id):
         return
 
     if query.data == "mod_delete_cancel":
-        return await query.message.reply_text("Отменено.")
+        return await query.message.reply_text(s(lang, "cancelled"))
 
     event_id = query.data.split(":")[1]
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     if not ev:
-        return await query.message.reply_text("❌ Событие не найдено.")
+        return await query.message.reply_text(s(lang, "event_not_found"))
 
     title = ev["title"]
 
@@ -770,6 +685,7 @@ async def handle_mod_delete_confirm(update: Update, ctx: ContextTypes.DEFAULT_TY
 
 async def handle_mod_edit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Показывает меню выбора поля для редактирования."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     if not is_moderator(query.from_user.id):
@@ -777,7 +693,7 @@ async def handle_mod_edit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     event_id = query.data.split(":")[1]
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     if not ev:
-        return await query.message.reply_text("❌ Событие не найдено.")
+        return await query.message.reply_text(s(lang, "event_not_found"))
 
     ctx.user_data["mod_editing_event_id"] = event_id
 
@@ -812,13 +728,14 @@ FIELD_LABELS = {
     "max_participants": "Новый лимит участников (число или `-` без лимита):",
     "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
     "cover_image_url":  "Новая ссылка на обложку (https://...) или отправь фото:",
-    "category":         "Выбери категорию:",
+    "category":         s(lang, "ask_select_category"),
     "format":           "Выбери формат:",
 }
 
 
 async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает выбор поля и запрашивает новое значение."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     field = query.data.split(":")[1]
@@ -826,7 +743,7 @@ async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if field == "cancel":
         ctx.user_data.pop("mod_editing_event_id", None)
         ctx.user_data.pop("mod_editing_field", None)
-        return await query.message.reply_text("Отменено.")
+        return await query.message.reply_text(s(lang, "cancelled"))
 
     ctx.user_data["mod_editing_field"] = field
     label = FIELD_LABELS.get(field, f"Новое значение для {field}:")
@@ -861,6 +778,7 @@ async def handle_mod_edit_value_callback(update: Update, ctx: ContextTypes.DEFAU
 
 async def handle_mod_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает текстовый ввод нового значения поля."""
+    lang = get_user_lang(update.effective_user.id)
     field = ctx.user_data.get("mod_editing_field")
     event_id = ctx.user_data.get("mod_editing_event_id")
     if not field or not event_id:
@@ -880,7 +798,7 @@ async def handle_mod_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_T
         ctx.user_data["new_event"]["cover_image_url"] = public_url
 
     if raw is None:
-        await update.message.reply_text("❌ Ожидается текст или фото.")
+        await update.message.reply_text(s(lang, "expect_text_or_photo"))
         return MOD_EDIT_VALUE
 
     # Нормализация значений
@@ -891,13 +809,13 @@ async def handle_mod_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_T
             dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
             new_value = dt.isoformat()
         except ValueError:
-            await update.message.reply_text("❌ Неверный формат. Используй: YYYY-MM-DD HH:MM")
+            await update.message.reply_text(s(lang, "invalid_date_format"))
             return MOD_EDIT_VALUE
     elif field == "max_participants":
         try:
             new_value = int(raw)
         except ValueError:
-            await update.message.reply_text("❌ Введи число или `-`.")
+            await update.message.reply_text(s(lang, "invalid_number"))
             return MOD_EDIT_VALUE
     else:
         new_value = raw
@@ -957,7 +875,7 @@ async def _apply_mod_edit(ctx, field: str, new_value, message):
 async def _show_pending(message):
     res = supabase.table("events").select("*").eq("status", "pending").order("created_at").execute()
     if not res.data:
-        return await message.reply_text("✅ Очередь пуста.")
+        return await message.reply_text("✅ Queue is empty.")
 
     for ev in res.data:
         # Таймер до автоапрува
@@ -991,6 +909,7 @@ async def cmd_pending(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _show_pending(update.message)
 
 async def handle_moderation_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     parts    = query.data.split(":")
@@ -1029,7 +948,7 @@ async def handle_moderation_callback(update: Update, ctx: ContextTypes.DEFAULT_T
                     s["tg_id"],
                     f"🔔 Новое событие в {CATEGORIES[ev['category']]}!\n\n{event_card_text(ev)}",
                     reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("🔔 Подписаться на напоминание", callback_data=f"subev:{event_id}"),
+                        InlineKeyboardButton(s(lang, "card_subscribe_reminder"), callback_data=f"subev:{event_id}"),
                     ]]),
                     parse_mode="Markdown"
                 )
@@ -1058,7 +977,7 @@ async def handle_reject_reason_button(update: Update, ctx: ContextTypes.DEFAULT_
 
     if reason.startswith("✏️"):
         ctx.user_data["awaiting_custom_reason"] = True
-        await query.message.reply_text("Напиши свою причину:")
+        await query.message.reply_text("Write your reason:")
         return REJECT_CUSTOM
 
     await _apply_moderation_decision(ctx, reason, query.message, query.from_user.id)
@@ -1114,7 +1033,7 @@ async def cmd_add_organizer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_moderator(update.effective_user.id):
         return
     if not ctx.args:
-        return await update.message.reply_text("Использование: /add_organizer @username")
+        return await update.message.reply_text("Usage: /add_organizer @username")
     username = ctx.args[0].lstrip("@")
     res = supabase.table("users").select("*").eq("tg_username", username).execute()
     if not res.data:
@@ -1132,10 +1051,11 @@ async def cmd_add_organizer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Entry point for the new-event wizard triggered via the menu button."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     if not is_organizer(query.from_user.id):
-        await query.message.reply_text("⛔ Нужна верификация организатора. Отправь /request_organizer")
+        await query.message.reply_text(s(lang, "need_verification"))
         return ConversationHandler.END
 
     ctx.user_data["new_event"] = {}
@@ -1149,11 +1069,10 @@ async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     if draft.data:
         ev = draft.data[0]
         await query.message.reply_text(
-            f"У тебя есть незавершённый черновик: *{ev.get('title', '(без названия)')}*\n"
-            f"Продолжить или начать заново?",
+            s(lang, "draft_found", title=ev.get('title', '(untitled)')),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("▶️ Продолжить",   callback_data=f"draft_continue:{ev['id']}"),
-                InlineKeyboardButton("🗑 Начать заново", callback_data="draft_new"),
+                InlineKeyboardButton(s(lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
+                InlineKeyboardButton(s(lang, "btn_new_draft"),      callback_data="draft_new"),
             ]]),
             parse_mode="Markdown"
         )
@@ -1162,6 +1081,7 @@ async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     return await _ask_category(query.message)
 
 async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     user = update.effective_user
     get_or_create_user(user.id, user.username)
 
@@ -1182,11 +1102,10 @@ async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if draft.data:
         ev = draft.data[0]
         await update.message.reply_text(
-            f"У тебя есть незавершённый черновик: *{ev.get('title', '(без названия)')}*\n"
-            f"Продолжить или начать заново?",
+            s(lang, "draft_found", title=ev.get('title', '(untitled)')),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("▶️ Продолжить",   callback_data=f"draft_continue:{ev['id']}"),
-                InlineKeyboardButton("🗑 Начать заново", callback_data="draft_new"),
+                InlineKeyboardButton(s(lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
+                InlineKeyboardButton(s(lang, "btn_new_draft"),      callback_data="draft_new"),
             ]]),
             parse_mode="Markdown"
         )
@@ -1233,27 +1152,31 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # Шаг 2 — дата (кнопки)
 async def ev_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sy"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Месяц?", reply_markup=make_month_keyboard("sm"))
+    await q.message.reply_text(s(lang, "ask_month"), reply_markup=make_month_keyboard("sm"))
     return EV_MONTH
 
 async def ev_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sm"] = int(q.data.split(":")[1])
-    await q.message.reply_text("День?", reply_markup=make_day_keyboard("sd"))
+    await q.message.reply_text(s(lang, "ask_day"), reply_markup=make_day_keyboard("sd"))
     return EV_DAY
 
 async def ev_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sd"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Час начала?", reply_markup=make_hour_keyboard("sh"))
+    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_hour_keyboard("sh"))
     return EV_HOUR
 
 async def ev_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sh"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Минуты?", reply_markup=make_minute_keyboard("smin"))
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_minute_keyboard("smin"))
     return EV_MINUTE
 
 async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1274,34 +1197,39 @@ async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return EV_END_CHOICE
 
 async def ev_end_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     if q.data == "end:no":
         return await _ask_city(q.message, ctx)
-    await q.message.reply_text("Год окончания?", reply_markup=make_year_keyboard("ey"))
+    await q.message.reply_text(s(lang, "ask_end_year"), reply_markup=make_year_keyboard("ey"))
     return EV_END_YEAR
 
 async def ev_end_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_ey"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Месяц окончания?", reply_markup=make_month_keyboard("em"))
+    await q.message.reply_text(s(lang, "ask_end_month"), reply_markup=make_month_keyboard("em"))
     return EV_END_MONTH
 
 async def ev_end_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_em"] = int(q.data.split(":")[1])
-    await q.message.reply_text("День окончания?", reply_markup=make_day_keyboard("ed"))
+    await q.message.reply_text(s(lang, "ask_end_day"), reply_markup=make_day_keyboard("ed"))
     return EV_END_DAY
 
 async def ev_end_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_ed"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Час окончания?", reply_markup=make_hour_keyboard("eh"))
+    await q.message.reply_text(s(lang, "ask_end_hour"), reply_markup=make_hour_keyboard("eh"))
     return EV_END_HOUR
 
 async def ev_end_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_eh"] = int(q.data.split(":")[1])
-    await q.message.reply_text("Минуты окончания?", reply_markup=make_minute_keyboard("emin"))
+    await q.message.reply_text(s(lang, "ask_end_minute"), reply_markup=make_minute_keyboard("emin"))
     return EV_END_MINUTE
 
 async def ev_end_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1324,12 +1252,14 @@ async def _ask_city(message, ctx):
     return EV_CITY
 
 async def ev_get_city(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["new_event"]["location_city"] = q.data.split(":")[1]
-    await q.message.reply_text("Адрес? (улица, заведение)", parse_mode="Markdown")
+    await q.message.reply_text(s(lang, "ask_address"), parse_mode="Markdown")
     return EV_ADDRESS
 
 async def ev_get_address(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     ctx.user_data["new_event"]["location_address"] = update.message.text
     await update.message.reply_text(
         "Лимит участников?",
@@ -1337,12 +1267,13 @@ async def ev_get_address(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("10",          callback_data="limit:10"),
             InlineKeyboardButton("20",          callback_data="limit:20"),
             InlineKeyboardButton("50",          callback_data="limit:50"),
-            InlineKeyboardButton("Без лимита",  callback_data="limit:0"),
+            InlineKeyboardButton(s(lang, "btn_no_limit"),  callback_data="limit:0"),
         ]])
     )
     return EV_LIMIT
 
 async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     val = int(q.data.split(":")[1])
     if val > 0:
@@ -1351,8 +1282,8 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(
         "Формат события?",
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🎉 Official — публичное мероприятие", callback_data="fmt:official"),
-            InlineKeyboardButton("🔒 Private — закрытая вечеринка",     callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
+            InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="fmt:private"),
         ]])
     )
     return EV_FORMAT
@@ -1361,21 +1292,24 @@ async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
     await _save_draft(ctx)
-    await q.message.reply_text("Шаг 4/5: *Название события?*", parse_mode="Markdown")
+    await q.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
     return EV_TITLE
 
 # Шаг 4 — название, описание, фото
 async def ev_get_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     ctx.user_data["new_event"]["title"] = update.message.text
-    await update.message.reply_text("Описание события:")
+    await update.message.reply_text(s(lang, "ask_description"))
     return EV_DESC
 
 async def ev_get_desc(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     ctx.user_data["new_event"]["description"] = update.message.text
-    await update.message.reply_text("Фото обложки — отправь картинку или ссылку (https://...):")
+    await update.message.reply_text(s(lang, "ask_photo"))
     return EV_PHOTO
 
 async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     if update.message.photo:
         file = await update.message.photo[-1].get_file()
         file_bytes = await file.download_as_bytearray()
@@ -1390,7 +1324,7 @@ async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif update.message.text and update.message.text.startswith("http"):
         ctx.user_data["new_event"]["cover_image_url"] = update.message.text.strip()
     else:
-        await update.message.reply_text("❌ Нужна картинка или ссылка (https://...)")
+        await update.message.reply_text(s(lang, "need_image_or_url"))
         return EV_PHOTO
 
     await update.message.reply_text(
@@ -1404,12 +1338,13 @@ async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def ev_reg_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Handle Yes/No registration choice."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     choice = query.data.split(":")[1]
     if choice == "yes":
         ctx.user_data["_reg_mode"] = "url"
-        await query.message.reply_text("Отправь ссылку на регистрацию:")
+        await query.message.reply_text(s(lang, "ask_reg_url"))
     else:
         ctx.user_data["_reg_mode"] = "contacts"
         await query.message.reply_text(
@@ -1435,6 +1370,7 @@ async def ev_get_url(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return await _show_preview(update.message, ev)
 
 async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
 
@@ -1443,17 +1379,17 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             supabase.table("events").delete().eq("id", ctx.user_data["draft_id"]).execute()
         ctx.user_data.pop("new_event", None)
         ctx.user_data.pop("draft_id", None)
-        await query.message.reply_text("❌ Создание события отменено.")
+        await query.message.reply_text(s(lang, "event_cancelled_creation"))
         return ConversationHandler.END
 
     if query.data == "ev_edit":
         # Show field picker — don't restart from scratch
         ev = ctx.user_data.get("new_event", {})
         if not ev:
-            await query.message.reply_text("❌ Сессия истекла. Попробуй /new_event снова.")
+            await query.message.reply_text(s(lang, "session_expired"))
             return ConversationHandler.END
         await query.message.reply_text(
-            "✏️ Что хочешь исправить?",
+            s(lang, "edit_what"),
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📝 Название",    callback_data="evf:title"),
                  InlineKeyboardButton("📄 Описание",    callback_data="evf:description")],
@@ -1467,7 +1403,7 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                  InlineKeyboardButton("📋 Контакт орг.", callback_data="evf:organizer_contacts")],
                 [InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
                 [InlineKeyboardButton("🎉 Формат",      callback_data="evf:format"),
-                 InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
+                 InlineKeyboardButton(s(lang, "edit_back_to_preview"), callback_data="evf:done")],
             ])
         )
         return EV_EDIT_FIELD
@@ -1475,7 +1411,7 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # ev_submit — save and notify moderator
     ev = ctx.user_data.get("new_event", {})
     if not ev:
-        await query.message.reply_text("❌ Сессия истекла. Попробуй /new_event снова.")
+        await query.message.reply_text(s(lang, "session_expired"))
         return ConversationHandler.END
 
     draft_id = ctx.user_data.pop("draft_id", None)
@@ -1489,11 +1425,11 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             event_id = res.data[0]["id"]
     except Exception as e:
         logger.error(f"Failed to save event to Supabase: {e}")
-        await query.message.reply_text("❌ Ошибка сохранения. Попробуй ещё раз.")
+        await query.message.reply_text(s(lang, "save_error"))
         return ConversationHandler.END
 
     ctx.user_data.pop("new_event", None)
-    await query.message.reply_text("✅ Событие отправлено на модерацию!")
+    await query.message.reply_text(s(lang, "event_submitted"))
 
     # Notify moderator
     ev_with_id = {**ev, "id": event_id}
@@ -1532,6 +1468,7 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Handle field selection in the preview edit picker."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     field = query.data.split(":")[1]
@@ -1540,7 +1477,7 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         # Return to preview
         ev = ctx.user_data.get("new_event", {})
         if not ev:
-            await query.message.reply_text("❌ Сессия истекла. Начни заново: /new_event")
+            await query.message.reply_text(s(lang, "session_expired_restart"))
             return ConversationHandler.END
         return await _show_preview(query.message, ev)
 
@@ -1549,17 +1486,17 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if field == "category":
         buttons = [[InlineKeyboardButton(lbl, callback_data=f"evv:{cat_id}")]
                    for cat_id, lbl in CATEGORIES.items()]
-        await query.message.reply_text("Выбери категорию:", reply_markup=InlineKeyboardMarkup(buttons))
+        await query.message.reply_text(s(lang, "ask_select_category"), reply_markup=InlineKeyboardMarkup(buttons))
         return EV_EDIT_VALUE
 
     if field == "max_participants":
         await query.message.reply_text(
-            "Новый лимит участников:",
+            s(lang, "ask_new_limit"),
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("10",         callback_data="evv:10"),
                 InlineKeyboardButton("20",         callback_data="evv:20"),
                 InlineKeyboardButton("50",         callback_data="evv:50"),
-                InlineKeyboardButton("Без лимита", callback_data="evv:0"),
+                InlineKeyboardButton(s(lang, "btn_no_limit"), callback_data="evv:0"),
             ]])
         )
         return EV_EDIT_VALUE
@@ -1567,30 +1504,30 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if field == "location_city":
         buttons = [[InlineKeyboardButton(c, callback_data=f"evv:{c}")]
                    for c in ["Nicosia", "Limassol", "Larnaca", "Paphos", "Other"]]
-        await query.message.reply_text("Выбери город:", reply_markup=InlineKeyboardMarkup(buttons))
+        await query.message.reply_text(s(lang, "ask_select_city"), reply_markup=InlineKeyboardMarkup(buttons))
         return EV_EDIT_VALUE
 
     if field == "format":
         await query.message.reply_text(
             "Формат события?",
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🎉 Official — публичное мероприятие", callback_data="evv:official"),
-                InlineKeyboardButton("🔒 Private — закрытая вечеринка",     callback_data="evv:private"),
+                InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="evv:official"),
+                InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="evv:private"),
             ]])
         )
         return EV_EDIT_VALUE
 
     prompts = {
-        "title":                "Новое название:",
-        "description":          "Новое описание:",
-        "location_address":     "Новый адрес:",
-        "date_start":           "Новая дата начала (YYYY-MM-DD HH:MM):",
-        "date_end":             "Новая дата конца (YYYY-MM-DD HH:MM) или `-` чтобы убрать:",
-        "external_url":         "Новая ссылка на регистрацию (или `-` чтобы убрать):",
-        "organizer_contacts":   "Контакт организатора (@username, ссылка, телефон) или `-` чтобы убрать:",
-        "cover_image_url":      "Новая обложка — ссылка (https://...) или отправь фото:",
+        "title":                s(lang, "prompts_title"),
+        "description":          s(lang, "prompts_description"),
+        "location_address":     s(lang, "prompts_location_address"),
+        "date_start":           s(lang, "prompts_date_start"),
+        "date_end":             s(lang, "prompts_date_end"),
+        "external_url":         s(lang, "prompts_external_url"),
+        "organizer_contacts":   s(lang, "prompts_organizer_contacts"),
+        "cover_image_url":      s(lang, "prompts_cover_image_url"),
     }
-    await query.message.reply_text(prompts.get(field, f"Новое значение для {field}:"))
+    await query.message.reply_text(prompts.get(field, f"New value for {field}:"))
     return EV_EDIT_VALUE
 
 
@@ -1710,19 +1647,20 @@ async def _save_draft(ctx):
 # ─── Мои события (UC-05, UC-06) ─────────────────────────────
 
 async def _show_my_events(message, tg_id: int, ctx):
+    lang = get_user_lang(tg_id)
     res = supabase.table("events").select("*")\
           .eq("organizer_tg_id", tg_id)\
           .neq("status", "draft")\
           .order("date_start", desc=True).limit(5).execute()
     if not res.data:
-        return await message.reply_text("У тебя пока нет событий. /new_event чтобы добавить!")
+        return await message.reply_text(s(lang, "no_events_yet"))
     for ev in res.data:
         icon    = {"published": "✅", "pending": "⏳", "cancelled": "❌"}.get(ev["status"], "?")
         reject  = f"\n⚠️ {ev['reject_reason']}" if ev.get("reject_reason") else ""
         subs_cnt = supabase.table("subscriptions").select("id", count="exact").eq("event_id", ev["id"]).execute()
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🚫 Отменить", callback_data=f"cancel_ev:{ev['id']}"),
-            InlineKeyboardButton("🔗 Поделиться", callback_data=f"share:{ev['id']}"),
+            InlineKeyboardButton(s(lang, "btn_cancel_event"), callback_data=f"cancel_ev:{ev['id']}"),
+            InlineKeyboardButton(s(lang, "btn_share"), callback_data=f"share:{ev['id']}"),
         ]])
         await message.reply_text(
             f"{icon} *{ev['title']}* (#{ev['id']})\n"
@@ -1736,22 +1674,24 @@ async def cmd_my_events(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _show_my_events(update.message, update.effective_user.id, ctx)
 
 async def handle_organizer_event_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     action, event_id = query.data.split(":")
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     if ev["organizer_tg_id"] != query.from_user.id and not is_moderator(query.from_user.id):
-        return await query.message.reply_text("⛔ Это не твоё событие.")
+        return await query.message.reply_text(s(lang, "not_your_event"))
 
     if action == "cancel_ev":
         ctx.user_data["cancel_event_id"] = event_id
         await query.message.reply_text(
-            f"Отменяем *{ev['title']}*.\nУказать причину? (или отправь `-`)",
+            s(lang, "ask_cancel_reason", title=ev['title']),
             parse_mode="Markdown"
         )
         ctx.user_data["awaiting_cancel_reason"] = True
 
 async def handle_cancel_reason(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     if not ctx.user_data.get("awaiting_cancel_reason"):
         return
     ctx.user_data.pop("awaiting_cancel_reason")
@@ -1759,7 +1699,7 @@ async def handle_cancel_reason(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     event_id = ctx.user_data.pop("cancel_event_id")
 
     supabase.table("events").update({"status": "cancelled"}).eq("id", event_id).execute()
-    await update.message.reply_text("🚫 Событие отменено.")
+    await update.message.reply_text(s(lang, "event_cancelled"))
 
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     reason_text = f"\n\nПричина: {reason}" if reason != "-" else ""
@@ -1778,6 +1718,7 @@ async def handle_cancel_reason(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Поделиться (UC-08) ──────────────────────────────────────
 
 async def handle_share_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     event_id = query.data.split(":")[1]
@@ -1785,8 +1726,7 @@ async def handle_share_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     share_text = event_share_text(ev)
     await query.message.reply_text(
-        f"Готовый анонс для репоста:\n\n{share_text}\n\n"
-        f"_Скопируй и отправь в свой Telegram-чат_",
+        s(lang, "share_announce", text=share_text),
         parse_mode="Markdown"
     )
 
@@ -1794,15 +1734,17 @@ async def handle_share_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Обратная связь (UC-07) ──────────────────────────────────
 
 async def _show_feedback(message, tg_id: int):
+    lang = get_user_lang(tg_id)
     await message.reply_text(
-        "📬 Обратная связь",
+        s(lang, "feedback_title"),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("📊 Статус события",       callback_data="fb:status"),
-            InlineKeyboardButton("✉️ Написать модератору",   callback_data="fb:contact"),
+            InlineKeyboardButton(s(lang, "btn_event_status"),  callback_data="fb:status"),
+            InlineKeyboardButton(s(lang, "btn_contact_mod"),   callback_data="fb:contact"),
         ]])
     )
 
 async def handle_feedback_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     action = query.data.split(":")[1]
@@ -1813,14 +1755,14 @@ async def handle_feedback_callback(update: Update, ctx: ContextTypes.DEFAULT_TYP
               .neq("status", "draft")\
               .order("created_at", desc=True).limit(5).execute()
         if not res.data:
-            return await query.message.reply_text("У тебя нет событий.")
+            return await query.message.reply_text(s(lang, "no_events_for_status"))
         buttons = [[InlineKeyboardButton(f"{ev['title'][:30]}", callback_data=f"ev_status:{ev['id']}")]
                    for ev in res.data]
-        await query.message.reply_text("Выбери событие:", reply_markup=InlineKeyboardMarkup(buttons))
+        await query.message.reply_text(s(lang, "select_event"), reply_markup=InlineKeyboardMarkup(buttons))
 
     elif action == "contact":
         ctx.user_data["awaiting_mod_message"] = True
-        await query.message.reply_text("Напиши сообщение модератору:")
+        await query.message.reply_text(s(lang, "ask_mod_message"))
 
 async def handle_ev_status_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1838,6 +1780,7 @@ async def handle_ev_status_callback(update: Update, ctx: ContextTypes.DEFAULT_TY
     )
 
 async def handle_mod_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     if not ctx.user_data.get("awaiting_mod_message"):
         return False
     ctx.user_data.pop("awaiting_mod_message")
@@ -1846,25 +1789,26 @@ async def handle_mod_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         MODERATOR_ID,
         f"✉️ Сообщение от @{user.username or '—'} (ID: {user.id}):\n\n{update.message.text}"
     )
-    await update.message.reply_text("✅ Сообщение отправлено модератору.")
+    await update.message.reply_text(s(lang, "mod_message_sent"))
     return True
 
 
 # ─── Просмотр событий (UC-09) ────────────────────────────────
 
 async def _cmd_events_inner(message):
+    lang = "ru"  # no user context, events list is language-agnostic
     now = datetime.now(timezone.utc).isoformat()
     res = supabase.table("events").select("*")\
           .eq("status", "published").gte("date_start", now)\
           .order("date_start").limit(5).execute()
     if not res.data:
-        return await message.reply_text("Ближайших событий пока нет.")
+        return await message.reply_text(s(lang, "no_upcoming"))
     for ev in res.data:
         date = ev["date_start"][:10]
         cat  = CATEGORIES.get(ev["category"], ev["category"])
         keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔔 Напомни мне",  callback_data=f"subev:{ev['id']}"),
-            InlineKeyboardButton("🔗 Регистрация",  url=ev.get("external_url") or f"{SITE_URL}/events/{ev['id']}"),
+            InlineKeyboardButton(s(lang, "btn_notify_me"), callback_data=f"subev:{ev['id']}"),
+            InlineKeyboardButton(s(lang, "btn_register"), url=ev.get("external_url") or f"{SITE_URL}/events/{ev['id']}"),
         ]])
         await message.reply_text(
             f"{cat} *{ev['title']}*\n📍 {ev['location_city']} · 🗓 {date}",
@@ -1879,6 +1823,7 @@ async def cmd_events(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Подписки (UC-10, UC-11, UC-12) ─────────────────────────
 
 async def handle_subev_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query    = update.callback_query
     await query.answer()
     event_id = query.data.split(":")[1]
@@ -1887,10 +1832,10 @@ async def handle_subev_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("event_id", event_id).execute()
     if existing.data:
-        return await query.answer("Уже подписан!", show_alert=True)
+        return await query.answer(s(lang, "already_subscribed"), show_alert=True)
 
     supabase.table("subscriptions").insert({"tg_id": tg_id, "event_id": event_id}).execute()
-    await query.answer("🔔 Напоминание установлено!", show_alert=True)
+    await query.answer(s(lang, "reminder_set"), show_alert=True)
 
     # Upsell на категорию (UC-10)
     ev = supabase.table("events").select("category").eq("id", event_id).single().execute().data
@@ -1900,74 +1845,78 @@ async def handle_subev_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not cat_sub.data:
         await ctx.bot.send_message(
             tg_id,
-            f"Хочешь получать все новые события {cat_label}?",
+            s(lang, "upsell_cat", cat=cat_label),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(f"✅ Подписаться на {cat_label}", callback_data=f"subcat:{ev['category']}"),
-                InlineKeyboardButton("Нет, спасибо", callback_data="subcat:skip"),
+                InlineKeyboardButton(s(lang, "btn_sub_cat", cat=cat_label), callback_data=f"subcat:{ev['category']}"),
+                InlineKeyboardButton(s(lang, "btn_no_thanks"), callback_data="subcat:skip"),
             ]])
         )
 
 async def handle_unsub_ev_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     sub_id = query.data.split(":")[1]
     supabase.table("subscriptions").delete().eq("id", sub_id).eq("tg_id", query.from_user.id).execute()
-    await query.message.reply_text("✅ Отписка оформлена.")
+    await query.message.reply_text(s(lang, "unsubscribed"))
 
 async def _cmd_my_inner(message, tg_id: int):
+    lang = get_user_lang(tg_id)
     subs = supabase.table("subscriptions").select("*").eq("tg_id", tg_id).execute()
     if not subs.data:
         return await message.reply_text(
-            "Подписок нет.\n/events — события\n/subscribe — подписаться на категории"
+            s(lang, "no_subscriptions")
         )
     # Разделяем на события и категории
-    event_subs = [s for s in subs.data if s.get("event_id")]
-    cat_subs   = [s for s in subs.data if s.get("category")]
+    event_subs = [sub for sub in subs.data if sub.get("event_id")]
+    cat_subs   = [sub for sub in subs.data if sub.get("category")]
     lines, buttons = [], []
 
     if event_subs:
-        lines.append("*На события:*")
-        for s in event_subs:
-            ev = supabase.table("events").select("title").eq("id", s["event_id"]).execute()
-            name = ev.data[0]["title"] if ev.data else f"Событие #{s['event_id']}"
+        lines.append(s(lang, "subs_on_events"))
+        for sub in event_subs:
+            ev = supabase.table("events").select("title").eq("id", sub["event_id"]).execute()
+            name = ev.data[0]["title"] if ev.data else f"Event #{sub['event_id']}"
             lines.append(f"  🗓 {name}")
-            buttons.append([InlineKeyboardButton(f"Отписаться: {name[:28]}", callback_data=f"unsub_ev:{s['id']}")])
+            buttons.append([InlineKeyboardButton(s(lang, "btn_unsub_prefix") + name[:28], callback_data=f"unsub_ev:{sub['id']}")])
 
     if cat_subs:
-        lines.append("\n*На категории:*")
-        for s in cat_subs:
-            label = CATEGORIES.get(s["category"], s["category"])
+        lines.append(s(lang, "subs_on_cats"))
+        for sub in cat_subs:
+            label = CATEGORIES.get(sub["category"], sub["category"])
             lines.append(f"  📌 {label}")
-            buttons.append([InlineKeyboardButton(f"Отписаться: {label}", callback_data=f"unsub_ev:{s['id']}")])
+            buttons.append([InlineKeyboardButton(s(lang, "btn_unsub_prefix") + label, callback_data=f"unsub_ev:{sub['id']}")])
 
-    buttons.append([InlineKeyboardButton("+ Добавить категорию", callback_data="menu:subscribe")])
+    buttons.append([InlineKeyboardButton(s(lang, "btn_add_cat"), callback_data="menu:subscribe")])
     await message.reply_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
 async def cmd_my_subscriptions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _cmd_my_inner(update.message, update.effective_user.id)
 
 async def _cmd_subscribe_inner(message, tg_id: int):
+    lang = get_user_lang(tg_id)
     existing = supabase.table("subscriptions").select("category")\
                .eq("tg_id", tg_id).not_.is_("category", "null").execute()
-    existing_cats = {s["category"] for s in existing.data}
+    existing_cats = {sub["category"] for sub in existing.data}
     buttons = []
     for cat_id, label in CATEGORIES.items():
         check = "✅ " if cat_id in existing_cats else ""
         buttons.append([InlineKeyboardButton(f"{check}{label}", callback_data=f"subcat:{cat_id}")])
-    buttons.append([InlineKeyboardButton("Готово ✔", callback_data="subcat:done")])
-    await message.reply_text("Выбери категории (нажми чтобы переключить):", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons.append([InlineKeyboardButton(s(lang, "btn_done"), callback_data="subcat:done")])
+    await message.reply_text(s(lang, "select_categories"), reply_markup=InlineKeyboardMarkup(buttons))
 
 async def cmd_subscribe_categories(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _cmd_subscribe_inner(update.message, update.effective_user.id)
 
 async def handle_subcat_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     tg_id  = query.from_user.id
     action = query.data.split(":")[1]
 
     if action in ("done", "skip"):
-        return await query.message.reply_text("✅ Настройки сохранены!")
+        return await query.message.reply_text(s(lang, "settings_saved"))
 
     cat      = action
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("category", cat).execute()
@@ -2022,6 +1971,7 @@ async def job_send_reminders(ctx: ContextTypes.DEFAULT_TYPE):
                     logger.warning(f"Reminder failed for {s['tg_id']}: {e}")
 
 async def handle_cant_come(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
     parts    = query.data.split(":")
@@ -2030,7 +1980,7 @@ async def handle_cant_come(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     existing = supabase.table("subscriptions").select("id").eq("tg_id", tg_id).eq("event_id", event_id).execute()
     if existing.data:
         supabase.table("subscriptions").delete().eq("id", existing.data[0]["id"]).execute()
-    await query.message.reply_text("Понял, отписал тебя. Увидимся на другом событии! 👋")
+    await query.message.reply_text(s(lang, "cant_come"))
 
 
 # ─── Черновик: напоминание через 24ч ─────────────────────────
@@ -2120,13 +2070,14 @@ async def handle_end_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     Step 1: Organizer taps 'End Registration' inline button.
     Stores event_id and asks for confirmation.
     """
+    lang = get_user_lang(update.effective_user.id)
     query    = update.callback_query
     await query.answer()
     event_id = query.data.split(":")[1]
 
     ev = supabase.table("events").select("id, title, max_participants")         .eq("id", event_id).single().execute().data
     if not ev:
-        await query.message.reply_text("❌ Событие не найдено.")
+        await query.message.reply_text(s(lang, "event_not_found"))
         return
 
     keyboard = InlineKeyboardMarkup([[
@@ -2187,21 +2138,24 @@ async def handle_end_registration_confirm(update: Update, ctx: ContextTypes.DEFA
 
 async def handle_end_registration_skip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Organizer taps 'Still Open' — dismiss reminder silently."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
-    await query.answer("Понял, регистрация пока открыта.", show_alert=False)
+    await query.answer(s(lang, "reg_still_open"), show_alert=False)
 
 
 async def handle_end_registration_cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Organizer cancels the confirmation step."""
+    lang = get_user_lang(update.effective_user.id)
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("Отменено. Регистрация по-прежнему открыта.")
+    await query.message.reply_text(s(lang, "reg_cancel"))
 
 
 # ─── Общий обработчик текста ─────────────────────────────────
 
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Перехватывает свободный текст для разных состояний."""
+    lang = get_user_lang(update.effective_user.id)
     # Причина реджекта
     if ctx.user_data.get("awaiting_custom_reason"):
         ctx.user_data.pop("awaiting_custom_reason")
@@ -2264,7 +2218,7 @@ def build_application() -> Application:
             ],
         },
         fallbacks=[CommandHandler("cancel", lambda u, c: (
-            u.message.reply_text("Отменено. Черновик сохранён — продолжи через /new_event"),
+            u.message.reply_text(s(lang, "wizard_cancelled")),
             ConversationHandler.END
         ))],
         allow_reentry=True,
@@ -2286,7 +2240,7 @@ def build_application() -> Application:
             ],
         },
         fallbacks=[CommandHandler("cancel", lambda u, c: (
-            u.message.reply_text("Редактирование отменено."),
+            u.message.reply_text(s(lang, "edit_cancelled")),
             ConversationHandler.END
         ))],
         allow_reentry=True,
