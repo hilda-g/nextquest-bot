@@ -46,6 +46,11 @@ CATEGORIES = {
     "other":       "🃏 Другое",
 }
 
+FORMATS = {
+    "official": "🎉 Official",
+    "private":  "🔒 Private",
+}
+
 REJECT_REASONS = [
     "Нет фото обложки",
     "Неполный адрес",
@@ -62,6 +67,7 @@ REJECT_REASONS = [
     EV_YEAR, EV_MONTH, EV_DAY, EV_HOUR, EV_MINUTE,
     EV_END_CHOICE, EV_END_YEAR, EV_END_MONTH, EV_END_DAY, EV_END_HOUR, EV_END_MINUTE,
     EV_CITY, EV_ADDRESS, EV_LIMIT,
+    EV_FORMAT,
     EV_TITLE, EV_DESC, EV_PHOTO,
     EV_URL,
     REJECT_CUSTOM,
@@ -69,7 +75,7 @@ REJECT_REASONS = [
     MOD_EDIT_FIELD, MOD_EDIT_VALUE,
     # Organizer preview inline-edit states
     EV_EDIT_FIELD, EV_EDIT_VALUE,
-) = range(24)
+) = range(25)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -132,6 +138,7 @@ def event_card_text(ev: dict) -> str:
     date_str   = format_date_ru(ev["date_start"])
     end_str    = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
     limit      = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
+    fmt_label  = FORMATS.get(ev.get("format", "official"), "🎉 Official")
     organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
@@ -139,7 +146,7 @@ def event_card_text(ev: dict) -> str:
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
         f"*{ev['title'].upper()}*\n"
-        f"{CATEGORIES.get(ev['category'], ev['category'])}\n"
+        f"{CATEGORIES.get(ev['category'], ev['category'])} · {fmt_label}\n"
         f"📅 {date_str}{end_str}\n"
         f"{location_link}\n"
         f"👥 {limit}"
@@ -610,7 +617,8 @@ async def handle_mod_edit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton("👥 Лимит",        callback_data="mef:max_participants")],
             [InlineKeyboardButton("🔗 Ссылка рег.",  callback_data="mef:external_url"),
              InlineKeyboardButton("🖼 Обложка",      callback_data="mef:cover_image_url")],
-            [InlineKeyboardButton("❌ Отмена",        callback_data="mef:cancel")],
+            [InlineKeyboardButton("🎉 Формат",       callback_data="mef:format"),
+             InlineKeyboardButton("❌ Отмена",        callback_data="mef:cancel")],
         ]),
         parse_mode="Markdown"
     )
@@ -628,6 +636,7 @@ FIELD_LABELS = {
     "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
     "cover_image_url":  "Новая ссылка на обложку (https://...) или отправь фото:",
     "category":         "Выбери категорию:",
+    "format":           "Выбери формат:",
 }
 
 
@@ -651,16 +660,25 @@ async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
         return MOD_EDIT_VALUE
 
+    if field == "format":
+        buttons = [[
+            InlineKeyboardButton("🎉 Official", callback_data="mev:official"),
+            InlineKeyboardButton("🔒 Private",  callback_data="mev:private"),
+        ]]
+        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        return MOD_EDIT_VALUE
+
     await query.message.reply_text(label, parse_mode="Markdown")
     return MOD_EDIT_VALUE
 
 
 async def handle_mod_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает выбор категории через кнопку."""
+    """Обрабатывает выбор категории или формата через кнопку."""
     query = update.callback_query
     await query.answer()
     new_value = query.data.split(":")[1]
-    await _apply_mod_edit(ctx, "category", new_value, query.message)
+    field = ctx.user_data.get("mod_editing_field", "category")
+    await _apply_mod_edit(ctx, field, new_value, query.message)
     return ConversationHandler.END
 
 
@@ -1146,6 +1164,19 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if val > 0:
         ctx.user_data["new_event"]["max_participants"] = val
     await _save_draft(ctx)
+    await q.message.reply_text(
+        "Формат события?",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🎉 Official — публичное мероприятие", callback_data="fmt:official"),
+            InlineKeyboardButton("🔒 Private — закрытая вечеринка",     callback_data="fmt:private"),
+        ]])
+    )
+    return EV_FORMAT
+
+async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
+    await _save_draft(ctx)
     await q.message.reply_text("Шаг 4/5: *Название события?*", parse_mode="Markdown")
     return EV_TITLE
 
@@ -1226,7 +1257,8 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                  InlineKeyboardButton("🗓 Дата конца",  callback_data="evf:date_end")],
                 [InlineKeyboardButton("🔗 Ссылка рег.", callback_data="evf:external_url"),
                  InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
-                [InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
+                [InlineKeyboardButton("🎉 Формат",      callback_data="evf:format"),
+                 InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
             ])
         )
         return EV_EDIT_FIELD
@@ -1327,6 +1359,16 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         buttons = [[InlineKeyboardButton(c, callback_data=f"evv:{c}")]
                    for c in ["Nicosia", "Limassol", "Larnaca", "Paphos", "Other"]]
         await query.message.reply_text("Выбери город:", reply_markup=InlineKeyboardMarkup(buttons))
+        return EV_EDIT_VALUE
+
+    if field == "format":
+        await query.message.reply_text(
+            "Формат события?",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🎉 Official — публичное мероприятие", callback_data="evv:official"),
+                InlineKeyboardButton("🔒 Private — закрытая вечеринка",     callback_data="evv:private"),
+            ]])
+        )
         return EV_EDIT_VALUE
 
     prompts = {
@@ -1430,7 +1472,7 @@ _EVENT_DB_COLUMNS = {
     "location_city", "location_address", "location_lat", "location_lng",
     "organizer_tg_id", "status",
     "max_participants", "external_url",
-    "reject_reason",
+    "reject_reason", "format",
 }
 
 def _db_fields(ev: dict) -> dict:
@@ -1849,6 +1891,7 @@ def build_application() -> Application:
             EV_CITY:       [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
             EV_ADDRESS:    [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
             EV_LIMIT:      [CallbackQueryHandler(ev_get_limit,     pattern="^limit:")],
+            EV_FORMAT:     [CallbackQueryHandler(ev_get_format,    pattern="^fmt:")],
             EV_TITLE:      [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_title)],
             EV_DESC:       [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
             EV_PHOTO:      [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
