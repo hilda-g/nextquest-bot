@@ -28,6 +28,34 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ─── Translation helper ───────────────────────────────────────
+import urllib.request
+import urllib.parse
+import json as _json
+
+def translate_description(text: str) -> dict:
+    """
+    Translate event description into RU, EL, UK using Google Translate free endpoint.
+    Returns dict with keys: description_ru, description_el, description_uk.
+    Falls back to original text if a translation fails.
+    """
+    results = {}
+    for lang_code, col in [("ru", "description_ru"), ("el", "description_el"), ("uk", "description_uk")]:
+        try:
+            url = (
+                "https://translate.googleapis.com/translate_a/single"
+                f"?client=gtx&sl=auto&tl={lang_code}&dt=t&q={urllib.parse.quote(text)}"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = _json.loads(resp.read().decode())
+            translated = "".join(chunk[0] for chunk in data[0] if chunk[0])
+            results[col] = translated
+        except Exception as e:
+            logger.warning(f"Translation to {lang_code} failed: {e}")
+            results[col] = text   # fallback: keep original
+    return results
+
 BOT_TOKEN    = os.environ["BOT_TOKEN"]
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -741,6 +769,9 @@ async def _apply_mod_edit(ctx, field: str, new_value, message):
         return await message.reply_text("❌ Сессия истекла.")
 
     update_data = {field: new_value}
+    # If description was edited, regenerate all translations
+    if field == "description" and new_value:
+        update_data.update(translate_description(new_value))
     supabase.table("events").update(update_data).eq("id", event_id).execute()
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
 
@@ -822,7 +853,11 @@ async def handle_moderation_callback(update: Update, ctx: ContextTypes.DEFAULT_T
     event_id = parts[1]
 
     if action == "approve":
-        supabase.table("events").update({"status": "published"}).eq("id", event_id).execute()
+        # Fetch event first to get description for translation
+        ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+        # Translate description and save together with status change
+        translations = translate_description(ev.get("description", ""))
+        supabase.table("events").update({"status": "published", **translations}).eq("id", event_id).execute()
         ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
         await query.edit_message_reply_markup(None)
         await query.message.reply_text(f"✅ Событие #{event_id} опубликовано!")
