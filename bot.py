@@ -1911,20 +1911,17 @@ async def job_organizer_reg_reminder(ctx: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔒 End Registration", callback_data=f"end_reg:{ev['id']}"),
                 InlineKeyboardButton("✅ Still Open",       callback_data=f"end_reg_skip:{ev['id']}"),
             ]])
+            text = (
+                "⏰ *Событие через 7 дней!*\n\n"
+                f"📌 *{ev['title']}*\n"
+                f"📅 {date_str}\n"
+                f"👥 Лимит: {limit} мест\n\n"
+                "Если все места уже заняты — нажми *End Registration*, "
+                "чтобы обновить статус до *Full* на сайте."
+            )
             await ctx.bot.send_message(
                 organizer_id,
-                f"⏰ *Твоё событие через 7 дней!*
-
-"
-                f"📌 *{ev['title']}*
-"
-                f"📅 {date_str}
-"
-                f"👥 Лимит: {limit} участников
-
-"
-                f"Если все места уже заняты — нажми *End Registration*, "
-                f"чтобы обновить статус события на сайте до *Full*.",
+                text,
                 reply_markup=keyboard,
                 parse_mode="Markdown"
             )
@@ -1956,16 +1953,14 @@ async def handle_end_registration(update: Update, ctx: ContextTypes.DEFAULT_TYPE
         InlineKeyboardButton("✅ Да, закрыть регистрацию", callback_data=f"end_reg_confirm:{event_id}"),
         InlineKeyboardButton("❌ Отмена",                  callback_data=f"end_reg_cancel:{event_id}"),
     ]])
+    text = (
+        "🔒 *Закрыть регистрацию?*\n\n"
+        f"📌 *{ev['title']}*\n"
+        f"👥 Лимит: {ev['max_participants']} мест\n\n"
+        "Это обновит статус до *Full* на сайте и уведомит всех подписчиков."
+    )
     await query.message.reply_text(
-        f"🔒 *Закрыть регистрацию?*
-
-"
-        f"📌 *{ev['title']}*
-"
-        f"👥 Лимит: {ev['max_participants']} участников
-
-"
-        f"Это обновит статус до *Full* на сайте и уведомит всех подписчиков.",
+        text,
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
@@ -1994,19 +1989,16 @@ async def handle_end_registration_confirm(update: Update, ctx: ContextTypes.DEFA
     date_str = ev["date_start"][:16].replace("T", " ")
     for s in subs.data:
         try:
+            sub_text = (
+                "🔒 *Регистрация закрыта!*\n\n"
+                f"📌 *{ev['title']}*\n"
+                f"📅 {date_str}\n"
+                "👥 Все места заняты.\n\n"
+                "Увидимся на событии! 🎉"
+            )
             await ctx.bot.send_message(
                 s["tg_id"],
-                f"🔒 *Регистрация закрыта!*
-
-"
-                f"📌 *{ev['title']}*
-"
-                f"📅 {date_str}
-"
-                f"👥 Все места заняты.
-
-"
-                f"Увидимся на событии! 🎉",
+                sub_text,
                 parse_mode="Markdown"
             )
         except Exception as e:
