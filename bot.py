@@ -139,7 +139,8 @@ def event_card_text(ev: dict) -> str:
     end_str    = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
     limit      = f"{ev['max_participants']} мест" if ev.get("max_participants") else "без лимита"
     fmt_label  = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
+    reg_line   = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
+    contact_line = f"\n📋 Контакт организатора: {ev['organizer_contacts']}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
@@ -150,7 +151,8 @@ def event_card_text(ev: dict) -> str:
         f"📅 {date_str}{end_str}\n"
         f"{location_link}\n"
         f"👥 {limit}"
-        f"{organizer}\n\n"
+        f"{contact_line}"
+        f"{reg_line}\n\n"
         f"{ev['description']}\n\n"
         f"——————————————————\n\n"
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
@@ -166,6 +168,7 @@ def event_share_text(ev: dict) -> str:
     event_url  = f"{SITE_URL}/events/{ev['id']}"
     remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     organizer  = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
+    contact_line = f"\n📋 Контакт организатора: {ev['organizer_contacts']}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
     description = ev['description'][:300] + ('...' if len(ev['description']) > 300 else '')
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
@@ -173,6 +176,7 @@ def event_share_text(ev: dict) -> str:
         f"{CATEGORIES.get(ev['category'], ev['category'])} · {ev['location_city']}\n"
         f"📅 {date_str}\n"
         f"{location_link}"
+        f"{contact_line}"
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
@@ -1209,21 +1213,45 @@ async def ev_get_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Нужна картинка или ссылка (https://...)")
         return EV_PHOTO
 
-    await update.message.reply_text("Ссылка на регистрацию (или `-` если нет):")
+    await update.message.reply_text(
+        "Есть ссылка на регистрацию?",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Да", callback_data="reg:yes"),
+            InlineKeyboardButton("❌ Нет", callback_data="reg:no"),
+        ]])
+    )
+    return EV_URL
+
+async def ev_reg_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle Yes/No registration choice."""
+    query = update.callback_query
+    await query.answer()
+    choice = query.data.split(":")[1]
+    if choice == "yes":
+        ctx.user_data["_reg_mode"] = "url"
+        await query.message.reply_text("Отправь ссылку на регистрацию:")
+    else:
+        ctx.user_data["_reg_mode"] = "contacts"
+        await query.message.reply_text(
+            "Как с тобой связаться для регистрации?\n"
+            "Напиши @username, ссылку, телефон или любой текст:"
+        )
     return EV_URL
 
 async def ev_get_url(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle registration link or organizer contacts free-text input."""
     txt = update.message.text.strip()
-    if txt != "-":
+    mode = ctx.user_data.pop("_reg_mode", "url")
+    if mode == "url":
         ctx.user_data["new_event"]["external_url"] = txt
+        ctx.user_data["new_event"].pop("organizer_contacts", None)
     else:
+        ctx.user_data["new_event"]["organizer_contacts"] = txt
         ctx.user_data["new_event"].pop("external_url", None)
 
     ev = ctx.user_data["new_event"]
     ev["organizer_tg_id"] = update.effective_user.id
     await _save_draft(ctx)
-
-    # Show step-5 preview — stay in EV_EDIT_FIELD so wizard catches submit/edit/cancel
     return await _show_preview(update.message, ev)
 
 async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1256,7 +1284,8 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🗓 Дата начала", callback_data="evf:date_start"),
                  InlineKeyboardButton("🗓 Дата конца",  callback_data="evf:date_end")],
                 [InlineKeyboardButton("🔗 Ссылка рег.", callback_data="evf:external_url"),
-                 InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url")],
+                 InlineKeyboardButton("📋 Контакт орг.", callback_data="evf:organizer_contacts")],
+                [InlineKeyboardButton("🖼 Обложка",     callback_data="evf:cover_image_url"),
                 [InlineKeyboardButton("🎉 Формат",      callback_data="evf:format"),
                  InlineKeyboardButton("✅ Всё верно — вернуться к превью", callback_data="evf:done")],
             ])
@@ -1372,13 +1401,14 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return EV_EDIT_VALUE
 
     prompts = {
-        "title":            "Новое название:",
-        "description":      "Новое описание:",
-        "location_address": "Новый адрес:",
-        "date_start":       "Новая дата начала (YYYY-MM-DD HH:MM):",
-        "date_end":         "Новая дата конца (YYYY-MM-DD HH:MM) или `-` чтобы убрать:",
-        "external_url":     "Новая ссылка на регистрацию (или `-` чтобы убрать):",
-        "cover_image_url":  "Новая обложка — ссылка (https://...) или отправь фото:",
+        "title":                "Новое название:",
+        "description":          "Новое описание:",
+        "location_address":     "Новый адрес:",
+        "date_start":           "Новая дата начала (YYYY-MM-DD HH:MM):",
+        "date_end":             "Новая дата конца (YYYY-MM-DD HH:MM) или `-` чтобы убрать:",
+        "external_url":         "Новая ссылка на регистрацию (или `-` чтобы убрать):",
+        "organizer_contacts":   "Контакт организатора (@username, ссылка, телефон) или `-` чтобы убрать:",
+        "cover_image_url":      "Новая обложка — ссылка (https://...) или отправь фото:",
     }
     await query.message.reply_text(prompts.get(field, f"Новое значение для {field}:"))
     return EV_EDIT_VALUE
@@ -1471,7 +1501,7 @@ _EVENT_DB_COLUMNS = {
     "cover_image_url",
     "location_city", "location_address", "location_lat", "location_lng",
     "organizer_tg_id", "status",
-    "max_participants", "external_url",
+    "max_participants", "external_url", "organizer_contacts",
     "reject_reason", "format",
 }
 
@@ -1895,7 +1925,8 @@ def build_application() -> Application:
             EV_TITLE:      [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_title)],
             EV_DESC:       [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
             EV_PHOTO:      [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
-            EV_URL:        [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_url)],
+            EV_URL:        [CallbackQueryHandler(ev_reg_choice, pattern="^reg:"),
+                            MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_url)],
             # Preview stage — submit / edit / cancel
             ConversationHandler.END: [
                 CallbackQueryHandler(ev_submit_callback, pattern="^ev_(submit|cancel|edit)$"),
