@@ -2051,6 +2051,34 @@ async def job_draft_reminders(ctx: ContextTypes.DEFAULT_TYPE):
 
 
 
+# ─── Cleanup: remove past event subscriptions ────────────────
+
+async def job_cleanup_past_event_subscriptions(ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Runs every hour. Deletes per-event subscriptions for events
+    whose date_start is in the past. Category subscriptions are never touched.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    # Find all past published events
+    past_events = supabase.table("events").select("id")\
+                  .eq("status", "published")\
+                  .lt("date_start", now).execute()
+    if not past_events.data:
+        return
+    past_ids = [ev["id"] for ev in past_events.data]
+    deleted = 0
+    for event_id in past_ids:
+        res = supabase.table("subscriptions")\
+              .delete()\
+              .eq("event_id", event_id)\
+              .not_.is_("event_id", "null")\
+              .execute()
+        if res.data:
+            deleted += len(res.data)
+    if deleted:
+        logger.info(f"Cleaned up {deleted} past event subscription(s)")
+
+
 # ─── Напоминание организатору: завершить регистрацию (7 дней) ─
 
 async def job_organizer_reg_reminder(ctx: ContextTypes.DEFAULT_TYPE):
@@ -2325,9 +2353,10 @@ def build_application() -> Application:
 
     # Cron-задачи
     job_queue: JobQueue = app.job_queue
-    job_queue.run_repeating(job_send_reminders,          interval=3600, first=60)
-    job_queue.run_repeating(job_organizer_reg_reminder,  interval=3600, first=90)
-    job_queue.run_repeating(job_draft_reminders, interval=3600, first=120)
+    job_queue.run_repeating(job_send_reminders,                    interval=3600, first=60)
+    job_queue.run_repeating(job_organizer_reg_reminder,            interval=3600, first=90)
+    job_queue.run_repeating(job_draft_reminders,                   interval=3600, first=120)
+    job_queue.run_repeating(job_cleanup_past_event_subscriptions,  interval=86400, first=150)
 
     # ── Bot menu commands (shown in Telegram's "/" menu) ──────
     async def post_init(application: Application) -> None:
