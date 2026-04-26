@@ -36,7 +36,7 @@ BOT_TOKEN      = os.environ["BOT_TOKEN"]
 CHANNEL_ID     = os.environ["CHANNEL_ID"]          # e.g. -1001234567890
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
-BOT_USERNAME   = os.environ.get("BOT_USERNAME", "nextquest_bot")
+BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
@@ -46,6 +46,16 @@ CATEGORIES = {
     "cosplay":    "👗 Cosplay",
     "other":      "🃏 Other",
 }
+
+FORMATS = {
+    "official": "🎉 Official",
+    "private":  "🔒 Private",
+}
+
+def maps_url(city: str, address: str) -> str:
+    from urllib.parse import quote
+    q = quote(f"{address} {city}".strip())
+    return f"https://maps.google.com/?q={q}"
 
 # ── Bot instance ──────────────────────────────────────────────
 bot: telegram.Bot | None = None
@@ -88,22 +98,32 @@ def build_google_calendar_url(ev: dict) -> str:
     )
 
 def build_new_event_message(ev: dict) -> str:
-    date_str    = ev["date_start"][:16].replace("T", " ")
-    end_str     = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
-    cat         = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
-    organizer   = f"\n⭐ Организатор: [Регистрация]({ev['external_url']})" if ev.get("external_url") else ""
-    description = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
-    gcal_url    = build_google_calendar_url(ev)
-    event_url   = f"{SITE_URL}/events/{ev['id']}"
-    remind_url  = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    date_str     = ev["date_start"][:16].replace("T", " ")
+    end_str      = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
+    cat          = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
+    fmt          = FORMATS.get(ev.get("format", "official"), "🎉 Official")
+    limit        = f"{ev['max_participants']} spots" if ev.get("max_participants") else "no limit"
+    location     = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
+    maps_link    = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
+    reg_line     = f"\n⭐ [Register]({ev['external_url']})" if ev.get("external_url") else ""
+    contact_line = (
+        f"\n📋 Contact organizer: {ev['organizer_contacts']}"
+        if ev.get("organizer_contacts") and not ev.get("external_url") else ""
+    )
+    description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
+    gcal_url     = build_google_calendar_url(ev)
+    event_url    = f"{SITE_URL}/events/{ev['id']}"
+    remind_url   = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
 
     return (
         f"✨ *Событие в календаре*\n\n"
         f"*{ev['title'].upper()}*\n"
-        f"{cat}\n"
+        f"{cat} · {fmt}\n"
         f"📅 {date_str}{end_str}\n"
-        f"📍 {ev.get('location_city', '')} · {ev.get('location_address', '')}"
-        f"{organizer}\n\n"
+        f"{maps_link}\n"
+        f"👥 {limit}"
+        f"{contact_line}"
+        f"{reg_line}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
