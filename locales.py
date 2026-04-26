@@ -770,9 +770,6 @@ STRINGS = {
         "el": "Η επεξεργασία ακυρώθηκε.",
         "uk": "Редагування скасовано.",
     },
-}
-
-
     "card_spots": {
         "en": "spots", "ru": "мест", "el": "θέσεις", "uk": "місць",
     },
@@ -830,7 +827,7 @@ STRINGS = {
         "el": "{icon} *{title}*\nΚατάσταση: {status}\n👥 Συνδρομητές: {count}\n{reject}",
         "uk": "{icon} *{title}*\nСтатус: {status}\n👥 Підписників: {count}\n{reject}",
     },
-
+}
 def s(lang: str, key: str, **kwargs) -> str:
     """
     Return localised string for given lang and key.
