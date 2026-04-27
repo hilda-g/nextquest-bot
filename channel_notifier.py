@@ -97,19 +97,37 @@ def build_google_calendar_url(ev: dict) -> str:
         f"&text={title}&dates={start}/{end}&location={location}&details={details}"
     )
 
+MONTHS_EN  = ["January","February","March","April","May","June",
+              "July","August","September","October","November","December"]
+WEEKDAYS_EN = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+
+def format_date_human(iso: str) -> str:
+    """Convert ISO datetime to: Wednesday, 21 April · 16:30"""
+    from datetime import datetime as dt
+    d = dt.fromisoformat(iso[:16])
+    weekday = WEEKDAYS_EN[d.weekday()]
+    month   = MONTHS_EN[d.month - 1]
+    return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
+
 def build_new_event_message(ev: dict) -> str:
-    date_str     = ev["date_start"][:16].replace("T", " ")
-    end_str      = f" → {ev['date_end'][:16].replace('T', ' ')}" if ev.get("date_end") else ""
-    cat          = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
-    fmt          = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    limit        = f"{ev['max_participants']} spots" if ev.get("max_participants") else "no limit"
-    location     = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
-    maps_link    = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
-    reg_line     = f"\n⭐ [Register]({ev['external_url']})" if ev.get("external_url") else ""
-    contact_line = (
-        f"\n📋 Contact organizer: {ev['organizer_contacts']}"
-        if ev.get("organizer_contacts") and not ev.get("external_url") else ""
-    )
+    date_str  = format_date_human(ev["date_start"])
+    end_str   = f" → {format_date_human(ev['date_end'])}" if ev.get("date_end") else ""
+    cat       = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
+    fmt       = FORMATS.get(ev.get("format", "official"), "🎉 Official")
+    limit     = f"{ev['max_participants']} spots" if ev.get("max_participants") else "no limit"
+    location  = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
+    maps_link = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
+
+    organizer_name = ev.get("organizer_username") or ""
+    organizer_line = f"\n👤 Organizer: @{organizer_name}" if organizer_name else ""
+
+    if ev.get("external_url"):
+        contact_line = f"\n📋 Contact: [Register]({ev['external_url']})"
+    elif ev.get("organizer_contacts"):
+        contact_line = f"\n📋 Contact: {ev['organizer_contacts']}"
+    else:
+        contact_line = ""
+
     description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
     gcal_url     = build_google_calendar_url(ev)
     event_url    = f"{SITE_URL}/events/{ev['id']}"
@@ -117,14 +135,13 @@ def build_new_event_message(ev: dict) -> str:
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
-        f"✨ *Событие в календаре*\n\n"
         f"*{ev['title'].upper()}*\n"
         f"{cat} · {fmt}\n"
         f"📅 {date_str}{end_str}\n"
         f"{maps_link}\n"
         f"👥 {limit}"
-        f"{contact_line}"
-        f"{reg_line}\n\n"
+        f"{organizer_line}"
+        f"{contact_line}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
