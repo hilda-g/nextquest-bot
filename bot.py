@@ -93,11 +93,12 @@ REJECT_REASONS = [
 
 # ─── Wizard states ───────────────────────────────────────────
 (
+    EV_FORMAT,
     EV_CATEGORY,
     EV_YEAR, EV_MONTH, EV_DAY, EV_HOUR, EV_MINUTE,
     EV_END_CHOICE, EV_END_YEAR, EV_END_MONTH, EV_END_DAY, EV_END_HOUR, EV_END_MINUTE,
     EV_CITY, EV_ADDRESS, EV_LIMIT,
-    EV_FORMAT,
+    EV_ORG_NAME, EV_ORG_LINK, EV_ORG_CONTACT,
     EV_TITLE, EV_DESC, EV_PHOTO,
     EV_URL,
     REJECT_CUSTOM,
@@ -109,7 +110,7 @@ REJECT_REASONS = [
     EV_LIMIT_CUSTOM,
     # Organizer post-publish edit wizard states
     ORG_EDIT_FIELD, ORG_EDIT_VALUE,
-) = range(28)
+) = range(31)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -200,8 +201,16 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
     fmt_label = FORMATS.get(ev.get("format", "official"), "🎉 Official")
     limit     = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
 
-    organizer_name = ev.get("organizer_username") or ""
-    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: @{organizer_name}" if organizer_name else ""
+    organizer_name = ev.get("organizer_name") or ev.get("organizer_username") or ""
+    if organizer_name and ev.get("format") == "private" and not organizer_name.startswith("@"):
+        organizer_name = f"@{organizer_name}"
+    organizer_link = ev.get("organizer_link") or ""
+    if organizer_link:
+        organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: [{organizer_name or organizer_link}]({organizer_link})"
+    elif organizer_name:
+        organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {organizer_name}"
+    else:
+        organizer_line = ""
 
     if ev.get("external_url"):
         contact_line = f"\n📋 {s(lang, 'card_contact_label')}: [{s(lang, 'btn_register')}]({ev['external_url']})"
@@ -1209,19 +1218,45 @@ async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return EV_CATEGORY
 
-    return await _ask_category(update.message, lang)
+    return await _ask_format(update.message, lang)
 
 async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    lang = get_user_lang(query.from_user.id)
     if query.data == "draft_new":
         ctx.user_data["new_event"] = {}
-        return await _ask_category(query.message)
+        return await _ask_format(query.message, lang)
     draft_id = query.data.split(":")[1]
     ev = supabase.table("events").select("*").eq("id", draft_id).single().execute().data
     ctx.user_data["new_event"] = ev
     ctx.user_data["draft_id"]  = draft_id
-    return await _ask_category(query.message)
+    return await _ask_format(query.message, lang)
+
+async def _ask_format(message, lang: str = "ru") -> int:
+    await message.reply_text(
+        s(lang, "step_format"),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
+            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
+        ]]),
+        parse_mode="Markdown"
+    )
+    return EV_FORMAT
+
+# Step 1 — format
+async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    if "new_event" not in ctx.user_data:
+        ctx.user_data["new_event"] = {}
+    fmt = q.data.split(":")[1]
+    ctx.user_data["new_event"]["format"] = fmt
+    ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
+    ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
+    await _save_draft(ctx)
+    lang = get_user_lang(q.from_user.id)
+    return await _ask_category(q.message, lang)
 
 async def _ask_category(message, lang: str = "ru") -> int:
     buttons = [[InlineKeyboardButton(cat_label(lang, cat_id), callback_data=f"cat:{cat_id}")]
@@ -1233,14 +1268,12 @@ async def _ask_category(message, lang: str = "ru") -> int:
     )
     return EV_CATEGORY
 
-# Шаг 1 — категория
+# Step 2 — category
 async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     if "new_event" not in ctx.user_data:
         ctx.user_data["new_event"] = {}
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
-    ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
-    ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
     await _save_draft(ctx)
     lang = get_user_lang(q.from_user.id)
     await q.message.reply_text(
@@ -1404,15 +1437,8 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if val > 0:
         ctx.user_data["new_event"]["max_participants"] = val
     await _save_draft(ctx)
-    await q.message.reply_text(
-        s(lang, "ask_format"),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
-            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
-            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
-        ]])
-    )
-    return EV_FORMAT
+    lang = get_user_lang(q.from_user.id)
+    return await _ask_organizer_info(q.message, ctx, lang)
 
 async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Handle free-text custom participant limit input."""
@@ -1423,22 +1449,59 @@ async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return EV_LIMIT_CUSTOM
     ctx.user_data["new_event"]["max_participants"] = int(text)
     await _save_draft(ctx)
-    await update.message.reply_text(
-        s(lang, "ask_format"),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
-            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
-            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
-        ]])
-    )
-    return EV_FORMAT
+    return await _ask_organizer_info(update.message, ctx, lang)
 
-async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+# ── Step 5 — organizer info (format-aware) ───────────────────
+
+async def _ask_organizer_info(message, ctx, lang: str = "ru") -> int:
+    """Start the organizer info sub-flow. Ask for name first."""
+    fmt = ctx.user_data.get("new_event", {}).get("format", "official")
+    key = {"private": "ask_org_name_private",
+           "community": "ask_org_name_community",
+           "official": "ask_org_name_official"}[fmt]
+    await message.reply_text(
+        f"{s(lang, 'step_organizer')}\n\n{s(lang, key)}",
+        parse_mode="Markdown"
+    )
+    return EV_ORG_NAME
+
+async def ev_get_org_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
-    q = update.callback_query; await q.answer()
-    ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
+    name = update.message.text.strip()
+    ctx.user_data["new_event"]["organizer_name"] = name
+    fmt = ctx.user_data["new_event"].get("format", "official")
+
+    if fmt == "private":
+        # No link for private — go straight to contact
+        await update.message.reply_text(s(lang, "ask_org_contact_private"))
+        return EV_ORG_CONTACT
+
+    key = "ask_org_link_community" if fmt == "community" else "ask_org_link_official"
+    await update.message.reply_text(s(lang, key))
+    return EV_ORG_LINK
+
+async def ev_get_org_link(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    txt = update.message.text.strip()
+    if txt != "-":
+        ctx.user_data["new_event"]["organizer_link"] = txt
+    else:
+        ctx.user_data["new_event"].pop("organizer_link", None)
+
+    fmt = ctx.user_data["new_event"].get("format", "official")
+    key = "ask_org_contact_community" if fmt == "community" else "ask_org_contact_official"
+    await update.message.reply_text(s(lang, key))
+    return EV_ORG_CONTACT
+
+async def ev_get_org_contact(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    txt = update.message.text.strip()
+    if txt != "-":
+        ctx.user_data["new_event"]["organizer_contacts"] = txt
+    else:
+        ctx.user_data["new_event"].pop("organizer_contacts", None)
     await _save_draft(ctx)
-    await q.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
+    await update.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
     return EV_TITLE
 
 # Шаг 4 — название, описание, фото
@@ -1546,6 +1609,8 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                  InlineKeyboardButton(s(lang, "ef_contact"),      callback_data="evf:organizer_contacts")],
                 [InlineKeyboardButton(s(lang, "ef_cover"),        callback_data="evf:cover_image_url")],
                 [InlineKeyboardButton(s(lang, "ef_format"),       callback_data="evf:format"),
+                 InlineKeyboardButton("🎪 Org. name",             callback_data="evf:organizer_name")],
+                [InlineKeyboardButton("🔗 Org. link",             callback_data="evf:organizer_link"),
                  InlineKeyboardButton(s(lang, "edit_back_to_preview"), callback_data="evf:done")],
             ])
         )
@@ -1670,6 +1735,8 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "external_url":         s(lang, "prompts_external_url"),
         "organizer_contacts":   s(lang, "prompts_organizer_contacts"),
         "cover_image_url":      s(lang, "prompts_cover_image_url"),
+        "organizer_name":       "Organizer display name (or `-` to remove):",
+        "organizer_link":       "Organizer link — TG group, channel, website (or `-` to remove):",
     }
     await query.message.reply_text(prompts.get(field, f"New value for {field}:"))
     return EV_EDIT_VALUE
@@ -1762,7 +1829,7 @@ _EVENT_DB_COLUMNS = {
     "date_start", "date_end", "timezone",
     "cover_image_url",
     "location_city", "location_address", "location_lat", "location_lng",
-    "organizer_tg_id", "organizer_username", "status",
+    "organizer_tg_id", "organizer_username", "organizer_name", "organizer_link", "status",
     "max_participants", "external_url", "organizer_contacts",
     "reject_reason", "format",
 }
@@ -2918,28 +2985,31 @@ def build_application() -> Application:
             CallbackQueryHandler(handle_draft_choice,    pattern="^draft_(continue|new)"),
         ],
         states={
-            EV_CATEGORY:   [CallbackQueryHandler(ev_get_category, pattern="^cat:")],
-            EV_YEAR:       [CallbackQueryHandler(ev_year,          pattern="^sy:")],
-            EV_MONTH:      [CallbackQueryHandler(ev_month,         pattern="^sm:")],
-            EV_DAY:        [CallbackQueryHandler(ev_day,           pattern="^sd:")],
-            EV_HOUR:       [CallbackQueryHandler(ev_hour,          pattern="^stp:")],
-            EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^(stm|stpback):"),],
-            EV_END_CHOICE: [CallbackQueryHandler(ev_end_choice,    pattern="^end:")],
-            EV_END_YEAR:   [CallbackQueryHandler(ev_end_year,      pattern="^ey:")],
-            EV_END_MONTH:  [CallbackQueryHandler(ev_end_month,     pattern="^em:")],
-            EV_END_DAY:    [CallbackQueryHandler(ev_end_day,       pattern="^ed:")],
-            EV_END_HOUR:   [CallbackQueryHandler(ev_end_hour,      pattern="^etp:")],
-            EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^(etm|etpback):"),],
-            EV_CITY:       [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
-            EV_ADDRESS:    [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
-            EV_LIMIT:        [CallbackQueryHandler(ev_get_limit,        pattern="^limit:")],
-            EV_LIMIT_CUSTOM: [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_limit_custom)],
             EV_FORMAT:       [CallbackQueryHandler(ev_get_format,    pattern="^fmt:")],
-            EV_TITLE:      [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_title)],
-            EV_DESC:       [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
-            EV_PHOTO:      [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
-            EV_URL:        [CallbackQueryHandler(ev_reg_choice, pattern="^reg:"),
-                            MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_url)],
+            EV_CATEGORY:     [CallbackQueryHandler(ev_get_category,  pattern="^cat:")],
+            EV_YEAR:         [CallbackQueryHandler(ev_year,          pattern="^sy:")],
+            EV_MONTH:        [CallbackQueryHandler(ev_month,         pattern="^sm:")],
+            EV_DAY:          [CallbackQueryHandler(ev_day,           pattern="^sd:")],
+            EV_HOUR:         [CallbackQueryHandler(ev_hour,          pattern="^stp:")],
+            EV_MINUTE:       [CallbackQueryHandler(ev_minute,        pattern="^(stm|stpback):"),],
+            EV_END_CHOICE:   [CallbackQueryHandler(ev_end_choice,    pattern="^end:")],
+            EV_END_YEAR:     [CallbackQueryHandler(ev_end_year,      pattern="^ey:")],
+            EV_END_MONTH:    [CallbackQueryHandler(ev_end_month,     pattern="^em:")],
+            EV_END_DAY:      [CallbackQueryHandler(ev_end_day,       pattern="^ed:")],
+            EV_END_HOUR:     [CallbackQueryHandler(ev_end_hour,      pattern="^etp:")],
+            EV_END_MINUTE:   [CallbackQueryHandler(ev_end_minute,    pattern="^(etm|etpback):"),],
+            EV_CITY:         [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
+            EV_ADDRESS:      [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
+            EV_LIMIT:        [CallbackQueryHandler(ev_get_limit,     pattern="^limit:")],
+            EV_LIMIT_CUSTOM: [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_limit_custom)],
+            EV_ORG_NAME:     [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_org_name)],
+            EV_ORG_LINK:     [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_org_link)],
+            EV_ORG_CONTACT:  [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_org_contact)],
+            EV_TITLE:        [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_title)],
+            EV_DESC:         [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_desc)],
+            EV_PHOTO:        [MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), ev_get_photo)],
+            EV_URL:          [CallbackQueryHandler(ev_reg_choice, pattern="^reg:"),
+                              MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_url)],
             # Preview stage — submit / edit / cancel
             ConversationHandler.END: [
                 CallbackQueryHandler(ev_submit_callback, pattern="^ev_(submit|cancel|edit)$"),
