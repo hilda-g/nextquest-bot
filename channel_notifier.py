@@ -40,20 +40,17 @@ BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
-    "rpg":        "🧙 Tabletop RPG",
     "larp":       "⚔️ LARP",
     "festival":   "🎪 Festival",
-    "cosplay":    "👽 Cosplay",
-    "lectures":   "🔭 Lectures",
-    "workshops":  "🧵 Workshops",
-    "gaming":     "🎮 Gaming",
-    "market":     "🛍️ Market",
+    "rpg":        "🎭 RPG",
+    "cosplay":    "👗 Cosplay",
     "other":      "🃏 Other",
 }
 
 FORMATS = {
-    "official": "🎉 Official",
-    "private":  "🔒 Private",
+    "private":   "🔒 Private",
+    "community": "✨ Community",
+    "official":  "🎉 Official",
 }
 
 def maps_url(city: str, address: str) -> str:

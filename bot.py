@@ -68,20 +68,17 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 CATEGORIES = {
     "boardgames": "🎲 Настолки",
-    "rpg":        "🧙 Tabletop RPG",
-    "larp":       "⚔️ LARP",
-    "festival":   "🎪 Фестивали",
-    "cosplay":    "👽 Косплей",
-    "lectures":   "🔭 Лекции",
-    "workshops":  "🧵 Воркшопы",
-    "gaming":     "🎮 Гейминг",
-    "market":     "🛍️ Маркет",
-    "other":      "🃏 Другое",
+    "larp":        "⚔️ LARP",
+    "festival":    "🎪 Фестивали",
+    "rpg":         "🎭 RPG",
+    "cosplay":     "👗 Косплей",
+    "other":       "🃏 Другое",
 }
 
 FORMATS = {
-    "official": "🎉 Official",
-    "private":  "🔒 Private",
+    "private":   "🔒 Private",
+    "community": "✨ Community",
+    "official":  "🎉 Official",
 }
 
 REJECT_REASONS = [
@@ -816,19 +813,16 @@ FIELD_DISPLAY_NAMES = {
 # Human-readable enum values shown to organizer (format, category)
 VALUE_DISPLAY = {
     # format
-    "official":    {"en": "Official 🎉",   "ru": "Официальное 🎉",  "el": "Επίσημο 🎉",   "uk": "Офіційне 🎉"},
-    "private":     {"en": "Private 🔒",    "ru": "Частное 🔒",      "el": "Ιδιωτικό 🔒",  "uk": "Приватне 🔒"},
+    "private":     {"en": "Private 🔒",    "ru": "Частное 🔒",      "el": "Ιδιωτικό 🔒",   "uk": "Приватне 🔒"},
+    "community":   {"en": "Community ✨",  "ru": "Community ✨",    "el": "Community ✨",   "uk": "Community ✨"},
+    "official":    {"en": "Official 🎉",   "ru": "Официальное 🎉",  "el": "Επίσημο 🎉",    "uk": "Офіційне 🎉"},
     # category
-    "boardgames":  {"en": "Board Games 🎲",   "ru": "Настолки 🎲",      "el": "Επιτραπέζια 🎲", "uk": "Настільні ігри 🎲"},
-    "rpg":         {"en": "Tabletop RPG 🧙",  "ru": "Tabletop RPG 🧙",  "el": "Tabletop RPG 🧙", "uk": "Tabletop RPG 🧙"},
-    "larp":        {"en": "LARP ⚔️",          "ru": "LARP ⚔️",          "el": "LARP ⚔️",         "uk": "LARP ⚔️"},
-    "festival":    {"en": "Festival 🎪",      "ru": "Фестиваль 🎪",     "el": "Φεστιβάλ 🎪",    "uk": "Фестиваль 🎪"},
-    "cosplay":     {"en": "Cosplay 👽",       "ru": "Косплей 👽",       "el": "Cosplay 👽",      "uk": "Косплей 👽"},
-    "lectures":    {"en": "Lectures 🔭",      "ru": "Лекции 🔭",        "el": "Διαλέξεις 🔭",   "uk": "Лекції 🔭"},
-    "workshops":   {"en": "Workshops 🧵",     "ru": "Воркшопы 🧵",     "el": "Εργαστήρια 🧵",  "uk": "Воркшопи 🧵"},
-    "gaming":      {"en": "Gaming 🎮",        "ru": "Гейминг 🎮",       "el": "Gaming 🎮",       "uk": "Гейминг 🎮"},
-    "market":      {"en": "Market 🛍️",        "ru": "Маркет 🛍️",        "el": "Αγορά 🛍️",        "uk": "Маркет 🛍️"},
-    "other":       {"en": "Other 🃏",         "ru": "Другое 🃏",        "el": "Άλλο 🃏",         "uk": "Інше 🃏"},
+    "boardgames":  {"en": "Board Games 🎲","ru": "Настолки 🎲",     "el": "Επιτραπέζια 🎲","uk": "Настільні ігри 🎲"},
+    "larp":        {"en": "LARP ⚔️",       "ru": "LARP ⚔️",         "el": "LARP ⚔️",       "uk": "LARP ⚔️"},
+    "festival":    {"en": "Festival 🎪",   "ru": "Фестиваль 🎪",    "el": "Φεστιβάλ 🎪",  "uk": "Фестиваль 🎪"},
+    "rpg":         {"en": "RPG 🎭",        "ru": "RPG 🎭",           "el": "RPG 🎭",        "uk": "RPG 🎭"},
+    "cosplay":     {"en": "Cosplay 👗",    "ru": "Косплей 👗",      "el": "Cosplay 👗",    "uk": "Косплей 👗"},
+    "other":       {"en": "Other 🃏",      "ru": "Другое 🃏",       "el": "Άλλο 🃏",       "uk": "Інше 🃏"},
 }
 
 
@@ -855,8 +849,9 @@ async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     if field == "format":
         buttons = [[
-            InlineKeyboardButton("🎉 Official", callback_data="mev:official"),
-            InlineKeyboardButton("🔒 Private",  callback_data="mev:private"),
+            InlineKeyboardButton("🔒 Private",   callback_data="mev:private"),
+            InlineKeyboardButton("✨ Community", callback_data="mev:community"),
+            InlineKeyboardButton("🎉 Official",  callback_data="mev:official"),
         ]]
         await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
         return MOD_EDIT_VALUE
@@ -1412,8 +1407,9 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(
         s(lang, "ask_format"),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
-            InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
+            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
         ]])
     )
     return EV_FORMAT
@@ -1430,8 +1426,9 @@ async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         s(lang, "ask_format"),
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="fmt:official"),
-            InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
+            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
         ]])
     )
     return EV_FORMAT
@@ -1657,8 +1654,9 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             s(lang, "ask_format"),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="evv:official"),
-                InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="evv:private"),
+                InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="evv:private"),
+                InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="evv:community"),
+                InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="evv:official"),
             ]])
         )
         return EV_EDIT_VALUE
@@ -2415,8 +2413,9 @@ async def handle_org_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             s(lang, "ask_format"),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="oev:official"),
-                InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="oev:private"),
+                InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="oev:private"),
+                InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="oev:community"),
+                InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="oev:official"),
             ]])
         )
         return ORG_EDIT_VALUE
