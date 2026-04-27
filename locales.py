@@ -245,10 +245,10 @@ STRINGS = {
         "uk": "День?",
     },
     "ask_hour_start": {
-        "en": "Время суток?",
+        "en": "Start hour?",
         "ru": "Час начала?",
-        "el": "Ώρα της ημέρας;",
-        "uk": "Час доби?",
+        "el": "Ώρα έναρξης;",
+        "uk": "Година початку?",
     },
     "ask_minute": {
         "en": "Minutes?",
@@ -443,10 +443,10 @@ STRINGS = {
 
     # ── My events ────────────────────────────────────────────
     "no_events_yet": {
-        "en": "You have no events yet. Use /new_event to add one!",
-        "ru": "У тебя пока нет событий. /new_event чтобы добавить!",
-        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new_event!",
-        "uk": "У тебе поки немає подій. /new_event щоб додати!",
+        "en": "You have no events yet. Use /new\\_event to add one!",
+        "ru": "У тебя пока нет событий. /new\\_event чтобы добавить!",
+        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new\\_event!",
+        "uk": "У тебе поки немає подій. /new\\_event щоб додати!",
     },
     "not_your_event": {
         "en": "⛔ This is not your event.",
@@ -767,6 +767,18 @@ STRINGS = {
         "ru": "📋 Контакт организатора: {contact}",
         "el": "📋 Επαφή διοργανωτή: {contact}",
         "uk": "📋 Контакт організатора: {contact}",
+    },
+    "card_organizer_label": {
+        "en": "Organizer",
+        "ru": "Организатор",
+        "el": "Διοργανωτής",
+        "uk": "Організатор",
+    },
+    "card_contact_label": {
+        "en": "Contact",
+        "ru": "Контакт",
+        "el": "Επαφή",
+        "uk": "Контакт",
     },
 
     # ── Wizard: cancelled / draft ─────────────────────────────

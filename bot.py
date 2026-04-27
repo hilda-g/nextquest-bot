@@ -164,13 +164,29 @@ MONTHS_RU = ["января","февраля","марта","апреля","мая
              "июля","августа","сентября","октября","ноября","декабря"]
 WEEKDAYS_RU = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
-def format_date_ru(iso: str) -> str:
-    """Convert ISO datetime to human-readable Russian format: Суббота, 10 мая · 22:30"""
+_MONTHS = {
+    "ru": ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"],
+    "en": ["January","February","March","April","May","June","July","August","September","October","November","December"],
+    "el": ["Ιανουαρίου","Φεβρουαρίου","Μαρτίου","Απριλίου","Μαΐου","Ιουνίου","Ιουλίου","Αυγούστου","Σεπτεμβρίου","Οκτωβρίου","Νοεμβρίου","Δεκεμβρίου"],
+    "uk": ["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"],
+}
+_WEEKDAYS = {
+    "ru": ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"],
+    "en": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    "el": ["Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή"],
+    "uk": ["Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота","Неділя"],
+}
+
+def format_date_loc(iso: str, lang: str = "ru") -> str:
+    """Convert ISO datetime to: Суббота, 10 мая · 22:30  (language-aware)"""
     from datetime import datetime as dt
-    d = dt.fromisoformat(iso[:16])
-    weekday = WEEKDAYS_RU[d.weekday()]
-    month   = MONTHS_RU[d.month - 1]
-    return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
+    d       = dt.fromisoformat(iso[:16])
+    months  = _MONTHS.get(lang, _MONTHS["ru"])
+    wdays   = _WEEKDAYS.get(lang, _WEEKDAYS["ru"])
+    return f"{wdays[d.weekday()]}, {d.day} {months[d.month-1]} · {d.strftime('%H:%M')}"
+
+def format_date_ru(iso: str) -> str:
+    return format_date_loc(iso, "ru")
 
 def maps_url(city: str, address: str) -> str:
     from urllib.parse import quote
@@ -178,15 +194,24 @@ def maps_url(city: str, address: str) -> str:
     return f"https://maps.google.com/?q={q}"
 
 def event_card_text(ev: dict, lang: str = "ru") -> str:
-    date_str   = format_date_ru(ev["date_start"])
-    end_str    = f" – {ev['date_end'][11:16]}" if ev.get("date_end") else ""
-    limit      = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
-    fmt_label  = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    reg_line   = f"\n{s(lang, 'card_organizer_reg', url=ev['external_url'])}" if ev.get("external_url") else ""
-    contact_line = f"\n{s(lang, 'card_organizer_contact', contact=ev['organizer_contacts'])}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
-    gcal_url   = build_google_calendar_url(ev)
-    event_url  = f"{SITE_URL}/events/{ev.get('id', '')}"
-    remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
+    date_str  = format_date_loc(ev["date_start"], lang)
+    end_str   = f" → {format_date_loc(ev['date_end'], lang)}" if ev.get("date_end") else ""
+    fmt_label = FORMATS.get(ev.get("format", "official"), "🎉 Official")
+    limit     = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
+
+    organizer_name = ev.get("organizer_username") or ""
+    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: @{organizer_name}" if organizer_name else ""
+
+    if ev.get("external_url"):
+        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: [{s(lang, 'btn_register')}]({ev['external_url']})"
+    elif ev.get("organizer_contacts"):
+        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: {ev['organizer_contacts']}"
+    else:
+        contact_line = ""
+
+    gcal_url      = build_google_calendar_url(ev)
+    event_url     = f"{SITE_URL}/events/{ev.get('id', '')}"
+    remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
         f"*{ev['title'].upper()}*\n"
@@ -194,8 +219,8 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
         f"📅 {date_str}{end_str}\n"
         f"{location_link}\n"
         f"👥 {limit}"
-        f"{contact_line}"
-        f"{reg_line}\n\n"
+        f"{organizer_line}"
+        f"{contact_line}\n\n"
         f"{ev['description']}\n\n"
         f"——————————————————\n\n"
         f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
@@ -284,8 +309,9 @@ _PERIOD_SLOTS = {
              + [(h, m) for h in range(0,  7)  for m in (0, 30)] + [(7, 0)],
 }
 
-def make_time_slots_keyboard(prefix: str, period: str) -> InlineKeyboardMarkup:
-    """Step 2: pick exact HH:MM slot (every 30 min) within the chosen period."""
+def make_time_slots_keyboard(prefix: str, period: str, back_prefix: str = "") -> InlineKeyboardMarkup:
+    """Step 2: pick exact HH:MM slot (every 30 min) within the chosen period.
+    back_prefix: if set, a ← Back button is added that re-shows the period picker."""
     slots = _PERIOD_SLOTS.get(period, _PERIOD_SLOTS["morning"])
     rows, row = [], []
     for h, m in slots:
@@ -295,6 +321,8 @@ def make_time_slots_keyboard(prefix: str, period: str) -> InlineKeyboardMarkup:
             rows.append(row); row = []
     if row:
         rows.append(row)
+    if back_prefix:
+        rows.append([InlineKeyboardButton("← Back", callback_data=f"{back_prefix}:back")])
     return InlineKeyboardMarkup(rows)
 
 async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_reply=False):
@@ -1247,21 +1275,26 @@ async def ev_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     period = q.data.split(":")[1]
     ctx.user_data["_speriod"] = period
-    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard("stm", period))
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard("stm", period, back_prefix="stpback"))
     return EV_MINUTE
 
 async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """User picked an exact HH:MM slot."""
+    """User picked an exact HH:MM slot — or tapped ← Back to re-show period picker."""
     q = update.callback_query; await q.answer()
     lang = get_user_lang(q.from_user.id)
-    _, h, m = q.data.split(":")          # stm:H:M
+    parts = q.data.split(":")
+    # Back button: stpback:back — re-show period picker
+    if parts[0] == "stpback":
+        await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_time_period_keyboard("stp", lang))
+        return EV_HOUR
+    _, h, m = parts          # stm:H:M
     h, m = int(h), int(m)
     d  = ctx.user_data
     dt = datetime(d["_sy"], d["_sm"], d["_sd"], h, m)
     ctx.user_data["new_event"]["date_start"] = dt.isoformat()
     await _save_draft(ctx)
     await q.message.reply_text(
-        s(lang, "start_confirmed", dt=format_date_ru(dt.isoformat())),
+        s(lang, "start_confirmed", dt=format_date_loc(dt.isoformat(), lang)),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_yes"), callback_data="end:yes"),
             InlineKeyboardButton(s(lang, "btn_no"),  callback_data="end:no"),
@@ -1304,13 +1337,18 @@ async def ev_end_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     period = q.data.split(":")[1]
     ctx.user_data["_eperiod"] = period
-    await q.message.reply_text(s(lang, "ask_end_minute"), reply_markup=make_time_slots_keyboard("etm", period))
+    await q.message.reply_text(s(lang, "ask_end_minute"), reply_markup=make_time_slots_keyboard("etm", period, back_prefix="etpback"))
     return EV_END_MINUTE
 
 async def ev_end_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     lang = get_user_lang(q.from_user.id)
-    _, h, m = q.data.split(":")      # etm:H:M
+    parts = q.data.split(":")
+    # Back button: etpback:back — re-show period picker
+    if parts[0] == "etpback":
+        await q.message.reply_text(s(lang, "ask_end_hour"), reply_markup=make_time_period_keyboard("etp", lang))
+        return EV_END_HOUR
+    _, h, m = parts      # etm:H:M
     h, m = int(h), int(m)
     d  = ctx.user_data
     dt = datetime(d["_ey"], d["_em"], d["_ed"], h, m)
@@ -2445,15 +2483,26 @@ async def _oev_date_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     prefix, period = q.data.split(":")
     ctx.user_data["_operiod"] = period
     slot_prefix = "ostm" if prefix == "ostp" else "oetm"
-    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard(slot_prefix, period))
+    back_prefix = "ostpback" if prefix == "ostp" else "oetpback"
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard(slot_prefix, period, back_prefix=back_prefix))
     return ORG_EDIT_VALUE
 
 async def _oev_date_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """User picked exact HH:MM slot."""
+    """User picked exact HH:MM slot — or tapped ← Back to re-show period picker."""
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    parts = q.data.split(":")          # ostm:H:M  or  oetm:H:M
-    prefix, h, m = parts[0], int(parts[1]), int(parts[2])
+    parts = q.data.split(":")
+    prefix = parts[0]
+
+    # Back buttons — re-show period picker
+    if prefix == "ostpback":
+        await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_time_period_keyboard("ostp", lang))
+        return ORG_EDIT_VALUE
+    if prefix == "oetpback":
+        await q.message.reply_text(s(lang, "ask_end_hour"), reply_markup=make_time_period_keyboard("oetp", lang))
+        return ORG_EDIT_VALUE
+
+    h, m = int(parts[1]), int(parts[2])
     is_start = prefix == "ostm"
 
     if is_start:
@@ -2467,8 +2516,7 @@ async def _oev_date_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(s(lang, "invalid_date_format"))
         return ORG_EDIT_VALUE
 
-    field = ctx.user_data.get("org_editing_field")
-    dt_display = format_date_ru(dt.isoformat())
+    dt_display = format_date_loc(dt.isoformat(), lang)
     await q.message.reply_text(
         s(lang, "org_edit_date_confirm", dt=dt_display),
         reply_markup=InlineKeyboardMarkup([[
@@ -2868,13 +2916,13 @@ def build_application() -> Application:
             EV_MONTH:      [CallbackQueryHandler(ev_month,         pattern="^sm:")],
             EV_DAY:        [CallbackQueryHandler(ev_day,           pattern="^sd:")],
             EV_HOUR:       [CallbackQueryHandler(ev_hour,          pattern="^stp:")],
-            EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^stm:")],
+            EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^(stm|stpback):"),],
             EV_END_CHOICE: [CallbackQueryHandler(ev_end_choice,    pattern="^end:")],
             EV_END_YEAR:   [CallbackQueryHandler(ev_end_year,      pattern="^ey:")],
             EV_END_MONTH:  [CallbackQueryHandler(ev_end_month,     pattern="^em:")],
             EV_END_DAY:    [CallbackQueryHandler(ev_end_day,       pattern="^ed:")],
             EV_END_HOUR:   [CallbackQueryHandler(ev_end_hour,      pattern="^etp:")],
-            EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^etm:")],
+            EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^(etm|etpback):"),],
             EV_CITY:       [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
             EV_ADDRESS:    [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
             EV_LIMIT:        [CallbackQueryHandler(ev_get_limit,        pattern="^limit:")],
@@ -2947,13 +2995,13 @@ def build_application() -> Application:
                 CallbackQueryHandler(_oev_date_month,   pattern="^osm:"),
                 CallbackQueryHandler(_oev_date_day,     pattern="^osd:"),
                 CallbackQueryHandler(_oev_date_hour,    pattern="^ostp:"),
-                CallbackQueryHandler(_oev_date_minute,  pattern="^ostm:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^(ostm|ostpback):"),
                 # Date picker sub-steps (end date)
                 CallbackQueryHandler(_oev_date_year,    pattern="^oey:"),
                 CallbackQueryHandler(_oev_date_month,   pattern="^oem:"),
                 CallbackQueryHandler(_oev_date_day,     pattern="^oed:"),
                 CallbackQueryHandler(_oev_date_hour,    pattern="^oetp:"),
-                CallbackQueryHandler(_oev_date_minute,  pattern="^oetm:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^(oetm|oetpback):"),
                 # Date confirmation / back
                 CallbackQueryHandler(_oev_date_confirm, pattern="^oev_date_ok:"),
                 CallbackQueryHandler(_oev_date_back,    pattern="^oev_date_back:"),
