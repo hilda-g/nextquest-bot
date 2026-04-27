@@ -68,11 +68,15 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 CATEGORIES = {
     "boardgames": "🎲 Настолки",
-    "larp":        "⚔️ LARP",
-    "festival":    "🎪 Фестивали",
-    "rpg":         "🎭 RPG",
-    "cosplay":     "👗 Косплей",
-    "other":       "🃏 Другое",
+    "rpg":        "🧙 Tabletop RPG",
+    "larp":       "⚔️ LARP",
+    "festival":   "🎪 Фестивали",
+    "cosplay":    "👽 Косплей",
+    "lectures":   "🔭 Лекции",
+    "workshops":  "🧵 Воркшопы",
+    "gaming":     "🎮 Гейминг",
+    "market":     "🛍️ Маркет",
+    "other":      "🃏 Другое",
 }
 
 FORMATS = {
@@ -815,12 +819,16 @@ VALUE_DISPLAY = {
     "official":    {"en": "Official 🎉",   "ru": "Официальное 🎉",  "el": "Επίσημο 🎉",   "uk": "Офіційне 🎉"},
     "private":     {"en": "Private 🔒",    "ru": "Частное 🔒",      "el": "Ιδιωτικό 🔒",  "uk": "Приватне 🔒"},
     # category
-    "boardgames":  {"en": "Board Games 🎲","ru": "Настолки 🎲",     "el": "Επιτραπέζια 🎲","uk": "Настільні ігри 🎲"},
-    "larp":        {"en": "LARP ⚔️",       "ru": "LARP ⚔️",         "el": "LARP ⚔️",       "uk": "LARP ⚔️"},
-    "festival":    {"en": "Festival 🎪",   "ru": "Фестиваль 🎪",    "el": "Φεστιβάλ 🎪",  "uk": "Фестиваль 🎪"},
-    "rpg":         {"en": "RPG 🎭",        "ru": "RPG 🎭",           "el": "RPG 🎭",        "uk": "RPG 🎭"},
-    "cosplay":     {"en": "Cosplay 👗",    "ru": "Косплей 👗",      "el": "Cosplay 👗",    "uk": "Косплей 👗"},
-    "other":       {"en": "Other 🃏",      "ru": "Другое 🃏",       "el": "Άλλο 🃏",       "uk": "Інше 🃏"},
+    "boardgames":  {"en": "Board Games 🎲",   "ru": "Настолки 🎲",      "el": "Επιτραπέζια 🎲", "uk": "Настільні ігри 🎲"},
+    "rpg":         {"en": "Tabletop RPG 🧙",  "ru": "Tabletop RPG 🧙",  "el": "Tabletop RPG 🧙", "uk": "Tabletop RPG 🧙"},
+    "larp":        {"en": "LARP ⚔️",          "ru": "LARP ⚔️",          "el": "LARP ⚔️",         "uk": "LARP ⚔️"},
+    "festival":    {"en": "Festival 🎪",      "ru": "Фестиваль 🎪",     "el": "Φεστιβάλ 🎪",    "uk": "Фестиваль 🎪"},
+    "cosplay":     {"en": "Cosplay 👽",       "ru": "Косплей 👽",       "el": "Cosplay 👽",      "uk": "Косплей 👽"},
+    "lectures":    {"en": "Lectures 🔭",      "ru": "Лекции 🔭",        "el": "Διαλέξεις 🔭",   "uk": "Лекції 🔭"},
+    "workshops":   {"en": "Workshops 🧵",     "ru": "Воркшопы 🧵",     "el": "Εργαστήρια 🧵",  "uk": "Воркшопи 🧵"},
+    "gaming":      {"en": "Gaming 🎮",        "ru": "Гейминг 🎮",       "el": "Gaming 🎮",       "uk": "Гейминг 🎮"},
+    "market":      {"en": "Market 🛍️",        "ru": "Маркет 🛍️",        "el": "Αγορά 🛍️",        "uk": "Маркет 🛍️"},
+    "other":       {"en": "Other 🃏",         "ru": "Другое 🃏",        "el": "Άλλο 🃏",         "uk": "Інше 🃏"},
 }
 
 

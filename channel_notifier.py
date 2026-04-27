@@ -40,10 +40,14 @@ BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
+    "rpg":        "🧙 Tabletop RPG",
     "larp":       "⚔️ LARP",
     "festival":   "🎪 Festival",
-    "rpg":        "🎭 RPG",
-    "cosplay":    "👗 Cosplay",
+    "cosplay":    "👽 Cosplay",
+    "lectures":   "🔭 Lectures",
+    "workshops":  "🧵 Workshops",
+    "gaming":     "🎮 Gaming",
+    "market":     "🛍️ Market",
     "other":      "🃏 Other",
 }
 
