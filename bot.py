@@ -2970,9 +2970,14 @@ async def _show_main_menu(message, role: str, lang: str = "ru"):
         fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(
             profile.get("org_format", ""), ""
         )
-        org_line = f"\n_Type: {fmt_label}_" if fmt_label else ""
+        if profile and fmt_label:
+            name_line    = f"\n👤 {profile['org_name']}" if profile.get("org_name") else ""
+            contact_line = f"\n📋 {profile['org_contact']}" if profile.get("org_contact") else ""
+            profile_block = f"\n\n*{fmt_label}*{name_line}{contact_line}"
+        else:
+            profile_block = ""
         await message.reply_text(
-            s(lang, "menu_organizer") + org_line,
+            s(lang, "menu_organizer") + profile_block,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(s(lang, "btn_new_event"),       callback_data="menu:new_event")],
                 [InlineKeyboardButton(s(lang, "btn_my_events"),       callback_data="menu:my_events")],
