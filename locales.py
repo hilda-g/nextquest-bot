@@ -865,6 +865,64 @@ STRINGS = {
         "el": "{icon} *{title}*\nΚατάσταση: {status}\n👥 Συνδρομητές: {count}\n{reject}",
         "uk": "{icon} *{title}*\nСтатус: {status}\n👥 Підписників: {count}\n{reject}",
     },
+
+    # ── Organizer: edit published event ──────────────────────
+    "org_edit_title": {
+        "en": "✏️ *Edit event: {title}*\n\nWhat would you like to change?",
+        "ru": "✏️ *Редактируем событие: {title}*\n\nЧто хочешь изменить?",
+        "el": "✏️ *Επεξεργασία εκδήλωσης: {title}*\n\nΤι θέλεις να αλλάξεις;",
+        "uk": "✏️ *Редагуємо подію: {title}*\n\nЩо хочеш змінити?",
+    },
+    "org_edit_sent": {
+        "en": "✅ Your edit request has been sent to the moderator for review.\n\n*Field:* {field}\n*Was:* `{old}`\n*Will be:* `{new}`\n\nYou'll get a notification once it's approved or declined.",
+        "ru": "✅ Запрос на изменение отправлен модератору на проверку.\n\n*Поле:* {field}\n*Было:* `{old}`\n*Станет:* `{new}`\n\nМы уведомим тебя, как только решение будет принято.",
+        "el": "✅ Το αίτημα αλλαγής στάλθηκε στον συντονιστή.\n\n*Πεδίο:* {field}\n*Ήταν:* `{old}`\n*Θα γίνει:* `{new}`\n\nΘα ενημερωθείς μόλις εγκριθεί ή απορριφθεί.",
+        "uk": "✅ Запит на зміну надіслано модератору на перевірку.\n\n*Поле:* {field}\n*Було:* `{old}`\n*Стане:* `{new}`\n\nМи повідомимо тебе, як тільки буде ухвалено рішення.",
+    },
+    "org_edit_approved": {
+        "en": "✅ Your edit for *{title}* was approved and is now live!\n\n*Field updated:* {field}",
+        "ru": "✅ Твоё изменение в событии *{title}* одобрено и уже на сайте!\n\n*Обновлено поле:* {field}",
+        "el": "✅ Η αλλαγή σου για *{title}* εγκρίθηκε και είναι πλέον ζωντανή!\n\n*Ενημερωμένο πεδίο:* {field}",
+        "uk": "✅ Твоя зміна для *{title}* схвалена і вже на сайті!\n\n*Оновлено поле:* {field}",
+    },
+    "org_edit_rejected": {
+        "en": "❌ Your edit request for *{title}* (field: {field}) was declined by the moderator.\n\nIf you have questions, use the Feedback section.",
+        "ru": "❌ Твой запрос на изменение события *{title}* (поле: {field}) отклонён модератором.\n\nЕсли есть вопросы — воспользуйся разделом «Обратная связь».",
+        "el": "❌ Το αίτημα αλλαγής για *{title}* (πεδίο: {field}) απορρίφθηκε.\n\nΑν έχεις ερωτήσεις, χρησιμοποίησε τα Σχόλια.",
+        "uk": "❌ Твій запит на зміну події *{title}* (поле: {field}) відхилено модератором.\n\nЯкщо є питання — скористайся розділом «Зворотній зв'язок».",
+    },
+    "org_edit_session_expired": {
+        "en": "❌ Session expired. Open *My Events* and tap Edit again.",
+        "ru": "❌ Сессия истекла. Открой *Мои события* и нажми Редактировать снова.",
+        "el": "❌ Η συνεδρία έληξε. Άνοιξε *Οι εκδηλώσεις μου* και πάτησε Επεξεργασία ξανά.",
+        "uk": "❌ Сесія закінчилась. Відкрий *Мої події* і натисни Редагувати знову.",
+    },
+
+    # ── Organizer: close / reopen registration ───────────────
+    "org_reg_closed": {
+        "en": "🔒 Registration for *{title}* is now *closed*.\n\nThe website has been updated automatically.",
+        "ru": "🔒 Регистрация на *{title}* теперь *закрыта*.\n\nСайт обновлён автоматически.",
+        "el": "🔒 Οι εγγραφές για *{title}* είναι πλέον *κλειστές*.\n\nΟ ιστότοπος ενημερώθηκε αυτόματα.",
+        "uk": "🔒 Реєстрацію на *{title}* тепер *закрито*.\n\nСайт оновлено автоматично.",
+    },
+    "org_reg_reopened": {
+        "en": "🔓 Registration for *{title}* is now *open* again.\n\nThe website has been updated automatically.",
+        "ru": "🔓 Регистрация на *{title}* снова *открыта*.\n\nСайт обновлён автоматически.",
+        "el": "🔓 Οι εγγραφές για *{title}* είναι πλέον *ανοιχτές* ξανά.\n\nΟ ιστότοπος ενημερώθηκε αυτόματα.",
+        "uk": "🔓 Реєстрацію на *{title}* знову *відкрито*.\n\nСайт оновлено автоматично.",
+    },
+    "org_edit_ask_date": {
+        "en": "Pick the new date — starting with the year:",
+        "ru": "Выбери новую дату — начнём с года:",
+        "el": "Επίλεξε νέα ημερομηνία — ξεκινάμε από το έτος:",
+        "uk": "Обери нову дату — починаємо з року:",
+    },
+    "org_edit_date_confirm": {
+        "en": "📅 *{dt}* — confirm?",
+        "ru": "📅 *{dt}* — подтверждаешь?",
+        "el": "📅 *{dt}* — επιβεβαίωση;",
+        "uk": "📅 *{dt}* — підтверджуєш?",
+    },
 }
 def s(lang: str, key: str, **kwargs) -> str:
     """

@@ -1695,13 +1695,12 @@ async def _show_my_events(message, tg_id: int, ctx):
         reject  = f"\n⚠️ {ev['reject_reason']}" if ev.get("reject_reason") else ""
         subs_cnt = supabase.table("subscriptions").select("id", count="exact").eq("event_id", ev["id"]).execute()
 
-        # Row 1: Edit + Share (for non-cancelled events)
+        # Row 1: Edit (for non-cancelled events)
         row1 = []
         if ev["status"] in ("published", "pending"):
             row1.append(InlineKeyboardButton("✏️ Edit Event", callback_data=f"org_edit:{ev['id']}"))
-        row1.append(InlineKeyboardButton(s(lang, "btn_share"), callback_data=f"share:{ev['id']}"))
 
-        # Row 2: Close/Reopen Registration + Cancel (published only)
+        # Row 2: Close/Reopen Registration + Cancel (published only for reg toggle)
         row2 = []
         if ev["status"] == "published":
             if ev.get("registration_closed"):
@@ -2245,27 +2244,26 @@ async def handle_org_edit_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ev:
         return await query.message.reply_text(s(lang, "event_not_found"))
 
-    # Only the event owner may edit
     if ev["organizer_tg_id"] != query.from_user.id:
         return await query.message.reply_text(s(lang, "not_your_event"))
 
     ctx.user_data["org_editing_event_id"] = event_id
 
     await query.message.reply_text(
-        f"✏️ *Edit event: {ev['title']}*\n\nWhat would you like to change?",
+        s(lang, "org_edit_title", title=ev["title"]),
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📝 Title",       callback_data="oef:title"),
-             InlineKeyboardButton("📄 Description", callback_data="oef:description")],
-            [InlineKeyboardButton("📍 City",         callback_data="oef:location_city"),
-             InlineKeyboardButton("🏠 Address",      callback_data="oef:location_address")],
-            [InlineKeyboardButton("🗓 Start date",   callback_data="oef:date_start"),
-             InlineKeyboardButton("🗓 End date",     callback_data="oef:date_end")],
-            [InlineKeyboardButton("🎲 Category",     callback_data="oef:category"),
-             InlineKeyboardButton("👥 Limit",        callback_data="oef:max_participants")],
-            [InlineKeyboardButton("🔗 Reg. URL",     callback_data="oef:external_url"),
-             InlineKeyboardButton("🖼 Cover",        callback_data="oef:cover_image_url")],
-            [InlineKeyboardButton("🎉 Format",       callback_data="oef:format"),
-             InlineKeyboardButton("❌ Cancel",        callback_data="oef:cancel")],
+            [InlineKeyboardButton(s(lang, "ef_title"),        callback_data="oef:title"),
+             InlineKeyboardButton(s(lang, "ef_description"),  callback_data="oef:description")],
+            [InlineKeyboardButton(s(lang, "ef_city"),         callback_data="oef:location_city"),
+             InlineKeyboardButton(s(lang, "ef_address"),      callback_data="oef:location_address")],
+            [InlineKeyboardButton(s(lang, "ef_date_start"),   callback_data="oef:date_start"),
+             InlineKeyboardButton(s(lang, "ef_date_end"),     callback_data="oef:date_end")],
+            [InlineKeyboardButton(s(lang, "ef_category"),     callback_data="oef:category"),
+             InlineKeyboardButton(s(lang, "ef_limit"),        callback_data="oef:max_participants")],
+            [InlineKeyboardButton(s(lang, "ef_reg_url"),      callback_data="oef:external_url"),
+             InlineKeyboardButton(s(lang, "ef_cover"),        callback_data="oef:cover_image_url")],
+            [InlineKeyboardButton(s(lang, "ef_format"),       callback_data="oef:format"),
+             InlineKeyboardButton(s(lang, "btn_cancel_str"),  callback_data="oef:cancel")],
         ]),
         parse_mode="Markdown"
     )
@@ -2282,48 +2280,174 @@ async def handle_org_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if field == "cancel":
         ctx.user_data.pop("org_editing_event_id", None)
         ctx.user_data.pop("org_editing_field", None)
-        await query.message.reply_text(s(lang, "cancelled"))
+        await query.message.reply_text(s(lang, "edit_cancelled"))
         return ConversationHandler.END
 
     ctx.user_data["org_editing_field"] = field
-    label = FIELD_LABELS.get(field, f"New value for {field}:")
+
+    # Date fields → same button picker as event creation
+    if field in ("date_start", "date_end"):
+        prefix = "osy" if field == "date_start" else "oey"
+        await query.message.reply_text(
+            s(lang, "org_edit_ask_date"),
+            reply_markup=make_year_keyboard(prefix)
+        )
+        return ORG_EDIT_VALUE
 
     if field == "category":
-        buttons = [[InlineKeyboardButton(lbl, callback_data=f"oev:{cat_id}")]
-                   for cat_id, lbl in CATEGORIES.items()]
-        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        buttons = [[InlineKeyboardButton(cat_label(lang, cat_id), callback_data=f"oev:{cat_id}")]
+                   for cat_id in CATEGORIES]
+        await query.message.reply_text(s(lang, "ask_select_category"), reply_markup=InlineKeyboardMarkup(buttons))
         return ORG_EDIT_VALUE
 
     if field == "format":
-        buttons = [[
-            InlineKeyboardButton("🎉 Official", callback_data="oev:official"),
-            InlineKeyboardButton("🔒 Private",  callback_data="oev:private"),
-        ]]
-        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        await query.message.reply_text(
+            s(lang, "ask_format"),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(s(lang, "btn_format_official"), callback_data="oev:official"),
+                InlineKeyboardButton(s(lang, "btn_format_private"),  callback_data="oev:private"),
+            ]])
+        )
         return ORG_EDIT_VALUE
 
-    await query.message.reply_text(label, parse_mode="Markdown")
+    if field == "location_city":
+        buttons = [[InlineKeyboardButton(c, callback_data=f"oev:{c}")]
+                   for c in ["Nicosia", "Limassol", "Larnaca", "Paphos", "Other"]]
+        await query.message.reply_text(s(lang, "ask_select_city"), reply_markup=InlineKeyboardMarkup(buttons))
+        return ORG_EDIT_VALUE
+
+    if field == "max_participants":
+        await query.message.reply_text(
+            s(lang, "ask_new_limit"),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("10",                        callback_data="oev:10"),
+                InlineKeyboardButton("20",                        callback_data="oev:20"),
+                InlineKeyboardButton("50",                        callback_data="oev:50"),
+                InlineKeyboardButton(s(lang, "btn_no_limit"),     callback_data="oev:0"),
+            ]])
+        )
+        return ORG_EDIT_VALUE
+
+    # Text fields — use localized prompts from locales.py
+    prompts = {
+        "title":                s(lang, "prompts_title"),
+        "description":          s(lang, "prompts_description"),
+        "location_address":     s(lang, "prompts_location_address"),
+        "external_url":         s(lang, "prompts_external_url"),
+        "organizer_contacts":   s(lang, "prompts_organizer_contacts"),
+        "cover_image_url":      s(lang, "prompts_cover_image_url"),
+    }
+    await query.message.reply_text(prompts.get(field, f"New value for {field}:"))
     return ORG_EDIT_VALUE
 
 
-async def handle_org_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Button-based value (category / format)."""
+# ── Date picker sub-handlers for organizer edit ───────────────
+
+async def _oev_date_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    prefix, val = q.data.split(":")
+    key = "_osy" if prefix == "osy" else "_oey"
+    ctx.user_data[key] = int(val)
+    month_prefix = "osm" if prefix == "osy" else "oem"
+    await q.message.reply_text(s(lang, "ask_month"), reply_markup=make_month_keyboard(month_prefix, lang))
+    return ORG_EDIT_VALUE
+
+async def _oev_date_month(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    prefix, val = q.data.split(":")
+    key = "_osm" if prefix == "osm" else "_oem"
+    ctx.user_data[key] = int(val)
+    day_prefix = "osd" if prefix == "osm" else "oed"
+    await q.message.reply_text(s(lang, "ask_day"), reply_markup=make_day_keyboard(day_prefix))
+    return ORG_EDIT_VALUE
+
+async def _oev_date_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    prefix, val = q.data.split(":")
+    key = "_osd" if prefix == "osd" else "_oed"
+    ctx.user_data[key] = int(val)
+    hour_prefix = "osh" if prefix == "osd" else "oeh"
+    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_hour_keyboard(hour_prefix))
+    return ORG_EDIT_VALUE
+
+async def _oev_date_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    prefix, val = q.data.split(":")
+    key = "_osh" if prefix == "osh" else "_oeh"
+    ctx.user_data[key] = int(val)
+    min_prefix = "osmin" if prefix == "osh" else "oemin"
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_minute_keyboard(min_prefix))
+    return ORG_EDIT_VALUE
+
+async def _oev_date_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    prefix, val = q.data.split(":")
+    minute = int(val)
+    is_start = prefix == "osmin"
+
+    if is_start:
+        yr, mo, dy, hr = (ctx.user_data.get(k) for k in ("_osy", "_osm", "_osd", "_osh"))
+    else:
+        yr, mo, dy, hr = (ctx.user_data.get(k) for k in ("_oey", "_oem", "_oed", "_oeh"))
+
+    try:
+        dt = datetime(yr, mo, dy, hr, minute)
+    except (TypeError, ValueError):
+        await q.message.reply_text(s(lang, "invalid_date_format"))
+        return ORG_EDIT_VALUE
+
+    field = ctx.user_data.get("org_editing_field")
+    dt_display = format_date_ru(dt.isoformat())
+    await q.message.reply_text(
+        s(lang, "org_edit_date_confirm", dt=dt_display),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_yes"), callback_data=f"oev_date_ok:{dt.isoformat()}"),
+            InlineKeyboardButton(s(lang, "btn_no"),  callback_data="oef:cancel"),
+        ]]),
+        parse_mode="Markdown"
+    )
+    return ORG_EDIT_VALUE
+
+async def _oev_date_confirm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer confirms the date picked via buttons."""
     query = update.callback_query
     await query.answer()
-    new_value = query.data.split(":")[1]
-    field = ctx.user_data.get("org_editing_field", "category")
+    new_value = query.data.split(":", 1)[1]   # ISO datetime string
+    field = ctx.user_data.get("org_editing_field")
+    await _submit_org_edit(ctx, field, new_value, query.message, query.from_user)
+    return ConversationHandler.END
+
+
+async def handle_org_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Button-based value (category / city / limit / format)."""
+    query = update.callback_query
+    await query.answer()
+    lang = get_user_lang(query.from_user.id)
+    raw   = query.data.split(":")[1]
+    field = ctx.user_data.get("org_editing_field")
+
+    if field == "max_participants":
+        new_value = int(raw) if raw != "0" else None
+    else:
+        new_value = raw if raw != "-" else None
+
     await _submit_org_edit(ctx, field, new_value, query.message, query.from_user)
     return ConversationHandler.END
 
 
 async def handle_org_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Free-text / photo value."""
+    """Free-text / photo value for non-date fields."""
     lang = get_user_lang(update.effective_user.id)
     field = ctx.user_data.get("org_editing_field")
     if not field:
         return ConversationHandler.END
 
-    # Photo upload
+    # Photo upload (cover)
     if update.message.photo:
         file = await update.message.photo[-1].get_file()
         file_bytes = await file.download_as_bytearray()
@@ -2338,13 +2462,6 @@ async def handle_org_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_T
     raw = update.message.text.strip()
     if raw == "-":
         new_value = None
-    elif field in ("date_start", "date_end"):
-        try:
-            dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
-            new_value = dt.isoformat()
-        except ValueError:
-            await update.message.reply_text(s(lang, "invalid_date_format"))
-            return ORG_EDIT_VALUE
     elif field == "max_participants":
         try:
             new_value = int(raw)
@@ -2359,42 +2476,34 @@ async def handle_org_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_T
 
 
 async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
-    """
-    Store the proposed change and ask the moderator to approve it.
-    Nothing is written to the DB yet.
-    """
+    """Store the proposed change and ask the moderator to approve it. Nothing written to DB yet."""
+    lang = get_user_lang(organizer.id)
     event_id = ctx.user_data.pop("org_editing_event_id", None)
     ctx.user_data.pop("org_editing_field", None)
+    # clean up any date picker temps
+    for k in ("_osy","_osm","_osd","_osh","_oey","_oem","_oed","_oeh"):
+        ctx.user_data.pop(k, None)
+
     if not event_id:
-        return await message.reply_text("❌ Session expired.")
+        return await message.reply_text(s(lang, "org_edit_session_expired"), parse_mode="Markdown")
 
     ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
     if not ev:
-        return await message.reply_text("❌ Event not found.")
+        return await message.reply_text(s(lang, "event_not_found"))
 
-    old_value = ev.get(field)
-    display_old = str(old_value) if old_value is not None else "—"
-    display_new = str(new_value) if new_value is not None else "—"
+    old_value    = ev.get(field)
+    display_old  = str(old_value) if old_value is not None else "—"
+    display_new  = str(new_value) if new_value is not None else "—"
 
-    # Tell organizer we sent it for review
+    # Confirm to organizer
     await message.reply_text(
-        f"✅ Edit request sent for moderator review.\n\n"
-        f"Field: *{field}*\n"
-        f"Old: `{display_old}`\n"
-        f"New: `{display_new}`",
+        s(lang, "org_edit_sent", field=field, old=display_old, new=display_new),
         parse_mode="Markdown"
     )
 
     org_name = f"@{organizer.username}" if organizer.username else organizer.full_name
-
-    # Notify moderator with Approve / Reject buttons
-    # Encode the change compactly: org_edit_approve:<event_id>:<field>:<new_value>
-    # new_value may be None — encode as empty string
-    encoded_new = "" if new_value is None else str(new_value)
-    # Truncate if value is very long (callback_data limit is 64 bytes)
-    # For long values (e.g. description) we store them in bot_data and pass a key
     data_key = f"{event_id}_{field}_{organizer.id}"
-    ctx.bot_data[f"org_edit_{data_key}"] = new_value  # store full value server-side
+    ctx.bot_data[f"org_edit_{data_key}"] = new_value
 
     await message.get_bot().send_message(
         MODERATOR_ID,
@@ -2420,11 +2529,9 @@ async def handle_org_edit_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     if not is_moderator(query.from_user.id):
         return
 
-    data_key = query.data.split(":", 1)[1]   # everything after "org_edit_approve:"
-    new_value = ctx.bot_data.pop(f"org_edit_{data_key}", None)
-
-    # Parse key: <event_id>_<field>_<organizer_id>
-    parts = data_key.split("_")
+    data_key     = query.data.split(":", 1)[1]
+    new_value    = ctx.bot_data.pop(f"org_edit_{data_key}", None)
+    parts        = data_key.split("_")
     event_id     = parts[0]
     organizer_id = int(parts[-1])
     field        = "_".join(parts[1:-1])
@@ -2438,18 +2545,15 @@ async def handle_org_edit_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE
 
     await query.edit_message_reply_markup(None)
     await query.message.reply_text(
-        f"✅ Edit approved and applied to *{ev['title']}*.\n"
-        f"Website updated automatically.",
+        f"✅ Edit approved and applied to *{ev['title']}*. Website updated automatically.",
         parse_mode="Markdown"
     )
 
-    # Notify organizer
     try:
         org_lang = get_user_lang(organizer_id)
         await ctx.bot.send_message(
             organizer_id,
-            f"✅ Your edit to *{ev['title']}* was approved by the moderator and is now live!\n\n"
-            f"Field updated: `{field}`",
+            s(org_lang, "org_edit_approved", title=ev["title"], field=field),
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -2465,15 +2569,14 @@ async def handle_org_edit_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     if not is_moderator(query.from_user.id):
         return
 
-    data_key = query.data.split(":", 1)[1]
+    data_key     = query.data.split(":", 1)[1]
     ctx.bot_data.pop(f"org_edit_{data_key}", None)
-
-    parts = data_key.split("_")
+    parts        = data_key.split("_")
     event_id     = parts[0]
     organizer_id = int(parts[-1])
     field        = "_".join(parts[1:-1])
 
-    ev = supabase.table("events").select("title").eq("id", event_id).single().execute().data
+    ev    = supabase.table("events").select("title").eq("id", event_id).single().execute().data
     title = ev["title"] if ev else f"Event #{event_id}"
 
     await query.edit_message_reply_markup(None)
@@ -2483,9 +2586,10 @@ async def handle_org_edit_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     )
 
     try:
+        org_lang = get_user_lang(organizer_id)
         await ctx.bot.send_message(
             organizer_id,
-            f"❌ Your edit request for *{title}* (field: `{field}`) was declined by the moderator.",
+            s(org_lang, "org_edit_rejected", title=title, field=field),
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -2499,7 +2603,7 @@ async def handle_org_edit_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
 async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """
     Organizer taps 'Close Registration' or 'Re-Open Registration'.
-    Updates DB immediately (no moderator approval needed).
+    Updates DB immediately — no moderator approval needed.
     Sends an info message to moderator.
     """
     lang = get_user_lang(update.effective_user.id)
@@ -2514,22 +2618,21 @@ async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if ev["organizer_tg_id"] != query.from_user.id:
         return await query.message.reply_text(s(lang, "not_your_event"))
 
-    # Toggle
     new_state = not bool(ev.get("registration_closed", False))
     supabase.table("events").update({"registration_closed": new_state}).eq("id", event_id).execute()
 
-    action_label = "closed" if new_state else "re-opened"
-    icon         = "🔒" if new_state else "🔓"
-    org_name     = f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name
+    org_name = f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name
 
-    # Confirm to organizer
+    # Confirm to organizer (localized)
+    msg_key = "org_reg_closed" if new_state else "org_reg_reopened"
     await query.message.reply_text(
-        f"{icon} Registration for *{ev['title']}* has been *{action_label}*.\n"
-        f"The website has been updated automatically.",
+        s(lang, msg_key, title=ev["title"]),
         parse_mode="Markdown"
     )
 
-    # Info message to moderator (no approval needed)
+    # Info-only message to moderator
+    action_label = "closed" if new_state else "re-opened"
+    icon         = "🔒" if new_state else "🔓"
     try:
         await ctx.bot.send_message(
             MODERATOR_ID,
@@ -2654,7 +2757,25 @@ def build_application() -> Application:
                 CallbackQueryHandler(handle_org_edit_field, pattern="^oef:"),
             ],
             ORG_EDIT_VALUE: [
+                # Date picker sub-steps (start date: osy/osm/osd/osh/osmin)
+                CallbackQueryHandler(_oev_date_year,    pattern="^osy:"),
+                CallbackQueryHandler(_oev_date_month,   pattern="^osm:"),
+                CallbackQueryHandler(_oev_date_day,     pattern="^osd:"),
+                CallbackQueryHandler(_oev_date_hour,    pattern="^osh:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^osmin:"),
+                # Date picker sub-steps (end date: oey/oem/oed/oeh/oemin)
+                CallbackQueryHandler(_oev_date_year,    pattern="^oey:"),
+                CallbackQueryHandler(_oev_date_month,   pattern="^oem:"),
+                CallbackQueryHandler(_oev_date_day,     pattern="^oed:"),
+                CallbackQueryHandler(_oev_date_hour,    pattern="^oeh:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^oemin:"),
+                # Date confirmation
+                CallbackQueryHandler(_oev_date_confirm, pattern="^oev_date_ok:"),
+                # Cancel button inside edit value (e.g. from date confirm step)
+                CallbackQueryHandler(handle_org_edit_field, pattern="^oef:cancel$"),
+                # Non-date button values (category, city, limit, format)
                 CallbackQueryHandler(handle_org_edit_value_callback, pattern="^oev:"),
+                # Free text / photo
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_org_edit_value_text),
                 MessageHandler(filters.PHOTO,                   handle_org_edit_value_text),
             ],
