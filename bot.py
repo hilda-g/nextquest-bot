@@ -106,7 +106,9 @@ REJECT_REASONS = [
     EV_EDIT_FIELD, EV_EDIT_VALUE,
     # Custom limit input
     EV_LIMIT_CUSTOM,
-) = range(26)
+    # Organizer post-publish edit wizard states
+    ORG_EDIT_FIELD, ORG_EDIT_VALUE,
+) = range(28)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -1692,13 +1694,27 @@ async def _show_my_events(message, tg_id: int, ctx):
         icon    = {"published": "✅", "pending": "⏳", "cancelled": "❌"}.get(ev["status"], "?")
         reject  = f"\n⚠️ {ev['reject_reason']}" if ev.get("reject_reason") else ""
         subs_cnt = supabase.table("subscriptions").select("id", count="exact").eq("event_id", ev["id"]).execute()
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_cancel_event"), callback_data=f"cancel_ev:{ev['id']}"),
-            InlineKeyboardButton(s(lang, "btn_share"), callback_data=f"share:{ev['id']}"),
-        ]])
+
+        # Row 1: Edit + Share (for non-cancelled events)
+        row1 = []
+        if ev["status"] in ("published", "pending"):
+            row1.append(InlineKeyboardButton("✏️ Edit Event", callback_data=f"org_edit:{ev['id']}"))
+        row1.append(InlineKeyboardButton(s(lang, "btn_share"), callback_data=f"share:{ev['id']}"))
+
+        # Row 2: Close/Reopen Registration + Cancel (published only)
+        row2 = []
+        if ev["status"] == "published":
+            if ev.get("registration_closed"):
+                row2.append(InlineKeyboardButton("🔓 Re-Open Registration", callback_data=f"org_reg_toggle:{ev['id']}"))
+            else:
+                row2.append(InlineKeyboardButton("🔒 Close Registration", callback_data=f"org_reg_toggle:{ev['id']}"))
+        row2.append(InlineKeyboardButton(s(lang, "btn_cancel_event"), callback_data=f"cancel_ev:{ev['id']}"))
+
+        keyboard = InlineKeyboardMarkup([row for row in [row1, row2] if row])
+        reg_status = " · 🔒 Registration closed" if ev.get("registration_closed") else ""
         await message.reply_text(
             f"{icon} *{ev['title']}* (#{ev['id']})\n"
-            f"{ev['date_start'][:10]} · {ev['location_city']}\n"
+            f"{ev['date_start'][:10]} · {ev['location_city']}{reg_status}\n"
             f"👥 {subs_cnt.count} подписчиков{reject}",
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -2214,7 +2230,322 @@ async def handle_end_registration_cancel(update: Update, ctx: ContextTypes.DEFAU
     await query.message.reply_text(s(lang, "reg_cancel"))
 
 
-# ─── Общий обработчик текста ─────────────────────────────────
+
+
+# ─── Organizer: Edit published/pending event (with mod approval) ──
+
+async def handle_org_edit_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Entry point: organizer taps ✏️ Edit Event from /my_events."""
+    lang = get_user_lang(update.effective_user.id)
+    query = update.callback_query
+    await query.answer()
+    event_id = query.data.split(":")[1]
+
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+    if not ev:
+        return await query.message.reply_text(s(lang, "event_not_found"))
+
+    # Only the event owner may edit
+    if ev["organizer_tg_id"] != query.from_user.id:
+        return await query.message.reply_text(s(lang, "not_your_event"))
+
+    ctx.user_data["org_editing_event_id"] = event_id
+
+    await query.message.reply_text(
+        f"✏️ *Edit event: {ev['title']}*\n\nWhat would you like to change?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📝 Title",       callback_data="oef:title"),
+             InlineKeyboardButton("📄 Description", callback_data="oef:description")],
+            [InlineKeyboardButton("📍 City",         callback_data="oef:location_city"),
+             InlineKeyboardButton("🏠 Address",      callback_data="oef:location_address")],
+            [InlineKeyboardButton("🗓 Start date",   callback_data="oef:date_start"),
+             InlineKeyboardButton("🗓 End date",     callback_data="oef:date_end")],
+            [InlineKeyboardButton("🎲 Category",     callback_data="oef:category"),
+             InlineKeyboardButton("👥 Limit",        callback_data="oef:max_participants")],
+            [InlineKeyboardButton("🔗 Reg. URL",     callback_data="oef:external_url"),
+             InlineKeyboardButton("🖼 Cover",        callback_data="oef:cover_image_url")],
+            [InlineKeyboardButton("🎉 Format",       callback_data="oef:format"),
+             InlineKeyboardButton("❌ Cancel",        callback_data="oef:cancel")],
+        ]),
+        parse_mode="Markdown"
+    )
+    return ORG_EDIT_FIELD
+
+
+async def handle_org_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer picks the field to change."""
+    lang = get_user_lang(update.effective_user.id)
+    query = update.callback_query
+    await query.answer()
+    field = query.data.split(":")[1]
+
+    if field == "cancel":
+        ctx.user_data.pop("org_editing_event_id", None)
+        ctx.user_data.pop("org_editing_field", None)
+        await query.message.reply_text(s(lang, "cancelled"))
+        return ConversationHandler.END
+
+    ctx.user_data["org_editing_field"] = field
+    label = FIELD_LABELS.get(field, f"New value for {field}:")
+
+    if field == "category":
+        buttons = [[InlineKeyboardButton(lbl, callback_data=f"oev:{cat_id}")]
+                   for cat_id, lbl in CATEGORIES.items()]
+        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        return ORG_EDIT_VALUE
+
+    if field == "format":
+        buttons = [[
+            InlineKeyboardButton("🎉 Official", callback_data="oev:official"),
+            InlineKeyboardButton("🔒 Private",  callback_data="oev:private"),
+        ]]
+        await query.message.reply_text(label, reply_markup=InlineKeyboardMarkup(buttons))
+        return ORG_EDIT_VALUE
+
+    await query.message.reply_text(label, parse_mode="Markdown")
+    return ORG_EDIT_VALUE
+
+
+async def handle_org_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Button-based value (category / format)."""
+    query = update.callback_query
+    await query.answer()
+    new_value = query.data.split(":")[1]
+    field = ctx.user_data.get("org_editing_field", "category")
+    await _submit_org_edit(ctx, field, new_value, query.message, query.from_user)
+    return ConversationHandler.END
+
+
+async def handle_org_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Free-text / photo value."""
+    lang = get_user_lang(update.effective_user.id)
+    field = ctx.user_data.get("org_editing_field")
+    if not field:
+        return ConversationHandler.END
+
+    # Photo upload
+    if update.message.photo:
+        file = await update.message.photo[-1].get_file()
+        file_bytes = await file.download_as_bytearray()
+        filename = f"covers/{update.effective_user.id}_{int(datetime.now().timestamp())}.jpg"
+        supabase.storage.from_("event-covers").upload(
+            filename, bytes(file_bytes), {"content-type": "image/jpeg"}
+        )
+        new_value = f"{SUPABASE_URL}/storage/v1/object/public/event-covers/{filename}"
+        await _submit_org_edit(ctx, field, new_value, update.message, update.effective_user)
+        return ConversationHandler.END
+
+    raw = update.message.text.strip()
+    if raw == "-":
+        new_value = None
+    elif field in ("date_start", "date_end"):
+        try:
+            dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
+            new_value = dt.isoformat()
+        except ValueError:
+            await update.message.reply_text(s(lang, "invalid_date_format"))
+            return ORG_EDIT_VALUE
+    elif field == "max_participants":
+        try:
+            new_value = int(raw)
+        except ValueError:
+            await update.message.reply_text(s(lang, "invalid_number"))
+            return ORG_EDIT_VALUE
+    else:
+        new_value = raw
+
+    await _submit_org_edit(ctx, field, new_value, update.message, update.effective_user)
+    return ConversationHandler.END
+
+
+async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
+    """
+    Store the proposed change and ask the moderator to approve it.
+    Nothing is written to the DB yet.
+    """
+    event_id = ctx.user_data.pop("org_editing_event_id", None)
+    ctx.user_data.pop("org_editing_field", None)
+    if not event_id:
+        return await message.reply_text("❌ Session expired.")
+
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+    if not ev:
+        return await message.reply_text("❌ Event not found.")
+
+    old_value = ev.get(field)
+    display_old = str(old_value) if old_value is not None else "—"
+    display_new = str(new_value) if new_value is not None else "—"
+
+    # Tell organizer we sent it for review
+    await message.reply_text(
+        f"✅ Edit request sent for moderator review.\n\n"
+        f"Field: *{field}*\n"
+        f"Old: `{display_old}`\n"
+        f"New: `{display_new}`",
+        parse_mode="Markdown"
+    )
+
+    org_name = f"@{organizer.username}" if organizer.username else organizer.full_name
+
+    # Notify moderator with Approve / Reject buttons
+    # Encode the change compactly: org_edit_approve:<event_id>:<field>:<new_value>
+    # new_value may be None — encode as empty string
+    encoded_new = "" if new_value is None else str(new_value)
+    # Truncate if value is very long (callback_data limit is 64 bytes)
+    # For long values (e.g. description) we store them in bot_data and pass a key
+    data_key = f"{event_id}_{field}_{organizer.id}"
+    ctx.bot_data[f"org_edit_{data_key}"] = new_value  # store full value server-side
+
+    await message.get_bot().send_message(
+        MODERATOR_ID,
+        f"✏️ *Organizer edit request*\n\n"
+        f"Event: *{ev['title']}* (#{event_id})\n"
+        f"By: {org_name} (ID: {organizer.id})\n\n"
+        f"Field: `{field}`\n"
+        f"Old: `{display_old}`\n"
+        f"New: `{display_new}`",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Approve", callback_data=f"org_edit_approve:{data_key}"),
+            InlineKeyboardButton("❌ Reject",  callback_data=f"org_edit_reject:{data_key}"),
+        ]]),
+        parse_mode="Markdown"
+    )
+    logger.info(f"Organizer {organizer.id} proposed edit for event {event_id}: {field} = {new_value}")
+
+
+async def handle_org_edit_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Moderator approves organizer edit — apply to DB immediately."""
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+
+    data_key = query.data.split(":", 1)[1]   # everything after "org_edit_approve:"
+    new_value = ctx.bot_data.pop(f"org_edit_{data_key}", None)
+
+    # Parse key: <event_id>_<field>_<organizer_id>
+    parts = data_key.split("_")
+    event_id     = parts[0]
+    organizer_id = int(parts[-1])
+    field        = "_".join(parts[1:-1])
+
+    update_data = {field: new_value}
+    if field == "description" and new_value:
+        update_data.update(translate_description(new_value))
+
+    supabase.table("events").update(update_data).eq("id", event_id).execute()
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+
+    await query.edit_message_reply_markup(None)
+    await query.message.reply_text(
+        f"✅ Edit approved and applied to *{ev['title']}*.\n"
+        f"Website updated automatically.",
+        parse_mode="Markdown"
+    )
+
+    # Notify organizer
+    try:
+        org_lang = get_user_lang(organizer_id)
+        await ctx.bot.send_message(
+            organizer_id,
+            f"✅ Your edit to *{ev['title']}* was approved by the moderator and is now live!\n\n"
+            f"Field updated: `{field}`",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not notify organizer {organizer_id}: {e}")
+
+    logger.info(f"Moderator approved org edit for event {event_id}: {field}")
+
+
+async def handle_org_edit_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Moderator rejects organizer edit — clean up, notify organizer."""
+    query = update.callback_query
+    await query.answer()
+    if not is_moderator(query.from_user.id):
+        return
+
+    data_key = query.data.split(":", 1)[1]
+    ctx.bot_data.pop(f"org_edit_{data_key}", None)
+
+    parts = data_key.split("_")
+    event_id     = parts[0]
+    organizer_id = int(parts[-1])
+    field        = "_".join(parts[1:-1])
+
+    ev = supabase.table("events").select("title").eq("id", event_id).single().execute().data
+    title = ev["title"] if ev else f"Event #{event_id}"
+
+    await query.edit_message_reply_markup(None)
+    await query.message.reply_text(
+        f"❌ Edit rejected for *{title}* (field: `{field}`).",
+        parse_mode="Markdown"
+    )
+
+    try:
+        await ctx.bot.send_message(
+            organizer_id,
+            f"❌ Your edit request for *{title}* (field: `{field}`) was declined by the moderator.",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not notify organizer {organizer_id}: {e}")
+
+    logger.info(f"Moderator rejected org edit for event {event_id}: {field}")
+
+
+# ─── Organizer: Close / Re-Open Registration ─────────────────
+
+async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    Organizer taps 'Close Registration' or 'Re-Open Registration'.
+    Updates DB immediately (no moderator approval needed).
+    Sends an info message to moderator.
+    """
+    lang = get_user_lang(update.effective_user.id)
+    query = update.callback_query
+    await query.answer()
+    event_id = query.data.split(":")[1]
+
+    ev = supabase.table("events").select("*").eq("id", event_id).single().execute().data
+    if not ev:
+        return await query.message.reply_text(s(lang, "event_not_found"))
+
+    if ev["organizer_tg_id"] != query.from_user.id:
+        return await query.message.reply_text(s(lang, "not_your_event"))
+
+    # Toggle
+    new_state = not bool(ev.get("registration_closed", False))
+    supabase.table("events").update({"registration_closed": new_state}).eq("id", event_id).execute()
+
+    action_label = "closed" if new_state else "re-opened"
+    icon         = "🔒" if new_state else "🔓"
+    org_name     = f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name
+
+    # Confirm to organizer
+    await query.message.reply_text(
+        f"{icon} Registration for *{ev['title']}* has been *{action_label}*.\n"
+        f"The website has been updated automatically.",
+        parse_mode="Markdown"
+    )
+
+    # Info message to moderator (no approval needed)
+    try:
+        await ctx.bot.send_message(
+            MODERATOR_ID,
+            f"{icon} *Registration {action_label}*\n\n"
+            f"Event: *{ev['title']}* (#{event_id})\n"
+            f"By organizer: {org_name} (ID: {query.from_user.id})\n\n"
+            f"Website updated automatically.",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not notify moderator of reg toggle: {e}")
+
+    logger.info(f"Organizer {query.from_user.id} {action_label} registration for event {event_id}")
+
+
+
 
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Перехватывает свободный текст для разных состояний."""
@@ -2313,6 +2644,29 @@ def build_application() -> Application:
     app.add_handler(wizard)
     app.add_handler(mod_edit_wizard)
 
+    # Organizer post-publish edit wizard
+    org_edit_wizard = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_org_edit_start, pattern="^org_edit:"),
+        ],
+        states={
+            ORG_EDIT_FIELD: [
+                CallbackQueryHandler(handle_org_edit_field, pattern="^oef:"),
+            ],
+            ORG_EDIT_VALUE: [
+                CallbackQueryHandler(handle_org_edit_value_callback, pattern="^oev:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_org_edit_value_text),
+                MessageHandler(filters.PHOTO,                   handle_org_edit_value_text),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", lambda u, c: (
+            u.message.reply_text(s(lang, "edit_cancelled")),
+            ConversationHandler.END
+        ))],
+        allow_reentry=True,
+    )
+    app.add_handler(org_edit_wizard)
+
     # Команды
     app.add_handler(CommandHandler("start",              cmd_start))
     app.add_handler(CommandHandler("admin",              cmd_admin))
@@ -2347,6 +2701,11 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(handle_end_registration_confirm,    pattern="^end_reg_confirm:"))
     app.add_handler(CallbackQueryHandler(handle_end_registration_cancel,     pattern="^end_reg_cancel:"))
     app.add_handler(CallbackQueryHandler(handle_end_registration_skip,       pattern="^end_reg_skip:"))
+    # Organizer: edit approval / rejection by moderator
+    app.add_handler(CallbackQueryHandler(handle_org_edit_approve,           pattern="^org_edit_approve:"))
+    app.add_handler(CallbackQueryHandler(handle_org_edit_reject,            pattern="^org_edit_reject:"))
+    # Organizer: close / reopen registration
+    app.add_handler(CallbackQueryHandler(handle_org_reg_toggle,             pattern="^org_reg_toggle:"))
     # Moderator manage-events callbacks
     app.add_handler(CallbackQueryHandler(handle_mod_page,                   pattern="^mod_page:"))
     app.add_handler(CallbackQueryHandler(handle_mod_delete,                 pattern="^mod_delete:"))
