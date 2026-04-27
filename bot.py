@@ -437,17 +437,33 @@ async def handle_onboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             )
             await _show_main_menu(query.message, "participant", lang)
         else:
-            await _show_main_menu(query.message, actual_role, lang)
+            await _show_main_menu(query.message, actual_role, lang, tg_id=tg_id)
 
-async def _show_main_menu(message, role: str, lang: str = "ru"):
+async def _show_main_menu(message, role: str, lang: str = "ru", tg_id: int = None):
     if role in ("organizer", "moderator"):
+        # Build profile block if available
+        profile_text = s(lang, "menu_organizer")
+        if tg_id:
+            profile = _get_org_profile(tg_id)
+            if profile:
+                fmt       = profile.get("org_format", "")
+                org_name  = profile.get("org_name") or ""
+                org_contact = profile.get("org_contact") or ""
+                fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+                if org_name:
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {org_name}\n📋 {org_contact}"
+                else:
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n📋 {org_contact}"
+
         await message.reply_text(
-            s(lang, "menu_organizer"),
+            profile_text,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(s(lang, "btn_new_event"),  callback_data="menu:new_event")],
                 [InlineKeyboardButton(s(lang, "btn_my_events"),  callback_data="menu:my_events")],
                 [InlineKeyboardButton(s(lang, "btn_feedback"),   callback_data="menu:feedback")],
-            ])
+                [InlineKeyboardButton("✏️ Edit Org Profile",     callback_data="org_profile:reset")],
+            ]),
+            parse_mode="Markdown"
         )
     else:
         await message.reply_text(
@@ -3026,31 +3042,7 @@ async def cmd_org_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang  = get_user_lang(tg_id)
     if not is_organizer(tg_id):
         return await update.message.reply_text(s(lang, "need_verification"))
-
-    profile = _get_org_profile(tg_id)
-    if profile:
-        fmt       = profile.get("org_format", "")
-        org_name  = profile.get("org_name") or ""
-        org_contact = profile.get("org_contact") or ""
-        fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
-
-        if org_name:
-            profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {org_name}\n📋 {org_contact}"
-        else:
-            profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n📋 {org_contact}"
-    else:
-        profile_text = s(lang, "menu_organizer")
-
-    await update.message.reply_text(
-        profile_text,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(s(lang, "btn_new_event"),      callback_data="menu:new_event")],
-            [InlineKeyboardButton(s(lang, "btn_my_events"),      callback_data="menu:my_events")],
-            [InlineKeyboardButton(s(lang, "btn_feedback"),       callback_data="menu:feedback")],
-            [InlineKeyboardButton(s(lang, "btn_change_org_type"), callback_data="org_profile:reset")],
-        ]),
-        parse_mode="Markdown"
-    )
+    await _show_main_menu(update.message, "organizer", lang, tg_id=tg_id)
 
 
 async def handle_org_profile_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
