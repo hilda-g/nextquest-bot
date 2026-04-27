@@ -443,10 +443,10 @@ STRINGS = {
 
     # ── My events ────────────────────────────────────────────
     "no_events_yet": {
-        "en": "You have no events yet. Use /new\\_event to add one!",
-        "ru": "У тебя пока нет событий. /new\\_event чтобы добавить!",
-        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new\\_event!",
-        "uk": "У тебе поки немає подій. /new\\_event щоб додати!",
+        "en": "You have no events yet. Use /new_event to add one!",
+        "ru": "У тебя пока нет событий. /new_event чтобы добавить!",
+        "el": "Δεν έχεις εκδηλώσεις ακόμα. Χρησιμοποίησε /new_event!",
+        "uk": "У тебе поки немає подій. /new_event щоб додати!",
     },
     "not_your_event": {
         "en": "⛔ This is not your event.",

@@ -257,22 +257,45 @@ def make_day_keyboard(prefix: str) -> InlineKeyboardMarkup:
     if row: rows.append(row)
     return InlineKeyboardMarkup(rows)
 
-def make_hour_keyboard(prefix: str) -> InlineKeyboardMarkup:
-    rows, row = [], []
-    for h in range(0, 24):
-        row.append(InlineKeyboardButton(f"{h:02d}", callback_data=f"{prefix}:{h}"))
-        if len(row) == 6:
-            rows.append(row); row = []
-    if row: rows.append(row)
-    return InlineKeyboardMarkup(rows)
-
-def make_minute_keyboard(prefix: str) -> InlineKeyboardMarkup:
+def make_time_period_keyboard(prefix: str, lang: str = "ru") -> InlineKeyboardMarkup:
+    """Step 1: pick time of day — Morning / Midday / Evening / Night."""
+    periods = {
+        "en": [("🌅 Morning",  "morning"),  ("☀️ Midday",   "midday"),
+               ("🌆 Evening",  "evening"),  ("🌙 Night",    "night")],
+        "ru": [("🌅 Утро",     "morning"),  ("☀️ День",     "midday"),
+               ("🌆 Вечер",    "evening"),  ("🌙 Ночь",     "night")],
+        "el": [("🌅 Πρωί",     "morning"),  ("☀️ Μεσημέρι","midday"),
+               ("🌆 Βράδυ",   "evening"),  ("🌙 Νύχτα",   "night")],
+        "uk": [("🌅 Ранок",    "morning"),  ("☀️ День",     "midday"),
+               ("🌆 Вечір",    "evening"),  ("🌙 Ніч",      "night")],
+    }
+    labels = periods.get(lang, periods["ru"])
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("00", callback_data=f"{prefix}:0"),
-        InlineKeyboardButton("15", callback_data=f"{prefix}:15"),
-        InlineKeyboardButton("30", callback_data=f"{prefix}:30"),
-        InlineKeyboardButton("45", callback_data=f"{prefix}:45"),
+        InlineKeyboardButton(lbl, callback_data=f"{prefix}:{val}")
+        for lbl, val in labels
     ]])
+
+# Time ranges for each period: list of (hour, minute) tuples
+_PERIOD_SLOTS = {
+    "morning": [(h, m) for h in range(7, 12)  for m in (0, 30)] + [(12, 0)],
+    "midday":  [(h, m) for h in range(12, 18) for m in (0, 30)] + [(18, 0)],
+    "evening": [(h, m) for h in range(18, 23) for m in (0, 30)] + [(23, 0)],
+    "night":   [(h, m) for h in range(23, 24) for m in (0, 30)]
+             + [(h, m) for h in range(0,  7)  for m in (0, 30)] + [(7, 0)],
+}
+
+def make_time_slots_keyboard(prefix: str, period: str) -> InlineKeyboardMarkup:
+    """Step 2: pick exact HH:MM slot (every 30 min) within the chosen period."""
+    slots = _PERIOD_SLOTS.get(period, _PERIOD_SLOTS["morning"])
+    rows, row = [], []
+    for h, m in slots:
+        label = f"{h:02d}:{m:02d}"
+        row.append(InlineKeyboardButton(label, callback_data=f"{prefix}:{h}:{m}"))
+        if len(row) == 4:
+            rows.append(row); row = []
+    if row:
+        rows.append(row)
+    return InlineKeyboardMarkup(rows)
 
 async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_reply=False):
     """Отправляет карточку события с фото если есть."""
@@ -486,10 +509,12 @@ async def handle_org_request(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(None)
         await query.message.reply_text("✅ Пользователь добавлен как организатор.")
         try:
+            user_lang = get_user_lang(tg_id)
             await ctx.bot.send_message(
                 tg_id,
-                s(get_user_lang(tg_id), "org_request_approved")
+                s(user_lang, "org_request_approved")
             )
+            await _set_organizer_commands(ctx.bot, tg_id, user_lang)
         except Exception:
             pass
     elif action == "deny_org":
@@ -740,6 +765,36 @@ FIELD_LABELS = {
     "format":           "Выбери формат:",
 }
 
+# Human-readable field names shown to organizer in edit confirmations (per lang)
+FIELD_DISPLAY_NAMES = {
+    "title":                {"en": "Event name",          "ru": "Название",               "el": "Όνομα εκδήλωσης",    "uk": "Назва"},
+    "description":          {"en": "Description",         "ru": "Описание",               "el": "Περιγραφή",           "uk": "Опис"},
+    "location_city":        {"en": "City",                "ru": "Город",                  "el": "Πόλη",                "uk": "Місто"},
+    "location_address":     {"en": "Address",             "ru": "Адрес",                  "el": "Διεύθυνση",           "uk": "Адреса"},
+    "date_start":           {"en": "Start date",          "ru": "Дата начала",            "el": "Ημερομηνία έναρξης",  "uk": "Дата початку"},
+    "date_end":             {"en": "End date",            "ru": "Дата окончания",         "el": "Ημερομηνία λήξης",    "uk": "Дата закінчення"},
+    "max_participants":     {"en": "Participant limit",   "ru": "Лимит участников",       "el": "Όριο συμμετεχόντων",  "uk": "Ліміт учасників"},
+    "external_url":         {"en": "Registration link",  "ru": "Ссылка на регистрацию",  "el": "Σύνδεσμος εγγραφής",  "uk": "Посилання реєстрації"},
+    "organizer_contacts":   {"en": "Organizer contact",  "ru": "Контакт организатора",   "el": "Επαφή διοργανωτή",    "uk": "Контакт організатора"},
+    "cover_image_url":      {"en": "Cover photo",        "ru": "Фото обложки",           "el": "Εξώφυλλο",            "uk": "Фото обкладинки"},
+    "format":               {"en": "Event format",       "ru": "Формат мероприятия",     "el": "Μορφή εκδήλωσης",     "uk": "Формат заходу"},
+    "category":             {"en": "Category",           "ru": "Категория",              "el": "Κατηγορία",            "uk": "Категорія"},
+}
+
+# Human-readable enum values shown to organizer (format, category)
+VALUE_DISPLAY = {
+    # format
+    "official":    {"en": "Official 🎉",   "ru": "Официальное 🎉",  "el": "Επίσημο 🎉",   "uk": "Офіційне 🎉"},
+    "private":     {"en": "Private 🔒",    "ru": "Частное 🔒",      "el": "Ιδιωτικό 🔒",  "uk": "Приватне 🔒"},
+    # category
+    "boardgames":  {"en": "Board Games 🎲","ru": "Настолки 🎲",     "el": "Επιτραπέζια 🎲","uk": "Настільні ігри 🎲"},
+    "larp":        {"en": "LARP ⚔️",       "ru": "LARP ⚔️",         "el": "LARP ⚔️",       "uk": "LARP ⚔️"},
+    "festival":    {"en": "Festival 🎪",   "ru": "Фестиваль 🎪",    "el": "Φεστιβάλ 🎪",  "uk": "Фестиваль 🎪"},
+    "rpg":         {"en": "RPG 🎭",        "ru": "RPG 🎭",           "el": "RPG 🎭",        "uk": "RPG 🎭"},
+    "cosplay":     {"en": "Cosplay 👗",    "ru": "Косплей 👗",      "el": "Cosplay 👗",    "uk": "Косплей 👗"},
+    "other":       {"en": "Other 🃏",      "ru": "Другое 🃏",       "el": "Άλλο 🃏",       "uk": "Інше 🃏"},
+}
+
 
 async def handle_mod_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает выбор поля и запрашивает новое значение."""
@@ -936,12 +991,13 @@ async def handle_moderation_callback(update: Update, ctx: ContextTypes.DEFAULT_T
 
         # Уведомление организатору (UC-09 уведомления)
         try:
+            org_lang = get_user_lang(ev["organizer_tg_id"])
             await ctx.bot.send_message(
                 ev["organizer_tg_id"],
                 f"🎉 Твоё событие *{ev['title']}* опубликовано!\n\n"
-                f"🔗 {SITE_URL}/events/{event_id}",
+                f"Смотри на сайте 👇",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔗 Поделиться", callback_data=f"share:{event_id}"),
+                    InlineKeyboardButton("🌐 Открыть страницу события", url=f"{SITE_URL}/events/{event_id}"),
                 ]]),
                 parse_mode="Markdown"
             )
@@ -1026,9 +1082,10 @@ async def _apply_moderation_decision(ctx, reason: str, message, mod_id: int):
         await ctx.bot.send_message(
             ev["organizer_tg_id"],
             notify_text,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(button_text, callback_data="menu:new_event"),
-            ]]),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(button_text, callback_data="menu:new_event")],
+                [InlineKeyboardButton("✉️ Написать модератору", callback_data="fb:contact")],
+            ]),
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -1049,8 +1106,10 @@ async def cmd_add_organizer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     supabase.table("users").update({"role": "organizer"}).eq("tg_username", username).execute()
     await update.message.reply_text(f"✅ @{username} теперь организатор!")
     try:
+        user_lang = get_user_lang(res.data[0]["tg_id"])
         await ctx.bot.send_message(res.data[0]["tg_id"],
             "🎉 Тебе выдана роль организатора NextQuest!\n\nИспользуй /new_event чтобы добавить событие.")
+        await _set_organizer_commands(ctx.bot, res.data[0]["tg_id"], user_lang)
     except Exception:
         pass
 
@@ -1179,27 +1238,30 @@ async def ev_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_sd"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_hour_keyboard("sh"))
+    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_time_period_keyboard("stp", lang))
     return EV_HOUR
 
 async def ev_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """User picked a time-of-day period — show the 30-min slots for that period."""
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    ctx.user_data["_sh"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_minute_keyboard("smin"))
+    period = q.data.split(":")[1]
+    ctx.user_data["_speriod"] = period
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard("stm", period))
     return EV_MINUTE
 
 async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """User picked an exact HH:MM slot."""
     q = update.callback_query; await q.answer()
     lang = get_user_lang(q.from_user.id)
-    m  = int(q.data.split(":")[1])
+    _, h, m = q.data.split(":")          # stm:H:M
+    h, m = int(h), int(m)
     d  = ctx.user_data
-    dt = datetime(d["_sy"], d["_sm"], d["_sd"], d["_sh"], m)
+    dt = datetime(d["_sy"], d["_sm"], d["_sd"], h, m)
     ctx.user_data["new_event"]["date_start"] = dt.isoformat()
     await _save_draft(ctx)
-    lang = get_user_lang(q.from_user.id)
     await q.message.reply_text(
-        s(lang, "start_confirmed", dt=dt.strftime('%d %b %Y %H:%M')),
+        s(lang, "start_confirmed", dt=format_date_ru(dt.isoformat())),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_yes"), callback_data="end:yes"),
             InlineKeyboardButton(s(lang, "btn_no"),  callback_data="end:no"),
@@ -1234,21 +1296,24 @@ async def ev_end_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["_ed"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_end_hour"), reply_markup=make_hour_keyboard("eh"))
+    await q.message.reply_text(s(lang, "ask_end_hour"), reply_markup=make_time_period_keyboard("etp", lang))
     return EV_END_HOUR
 
 async def ev_end_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    ctx.user_data["_eh"] = int(q.data.split(":")[1])
-    await q.message.reply_text(s(lang, "ask_end_minute"), reply_markup=make_minute_keyboard("emin"))
+    period = q.data.split(":")[1]
+    ctx.user_data["_eperiod"] = period
+    await q.message.reply_text(s(lang, "ask_end_minute"), reply_markup=make_time_slots_keyboard("etm", period))
     return EV_END_MINUTE
 
 async def ev_end_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
-    m  = int(q.data.split(":")[1])
+    lang = get_user_lang(q.from_user.id)
+    _, h, m = q.data.split(":")      # etm:H:M
+    h, m = int(h), int(m)
     d  = ctx.user_data
-    dt = datetime(d["_ey"], d["_em"], d["_ed"], d["_eh"], m)
+    dt = datetime(d["_ey"], d["_em"], d["_ed"], h, m)
     ctx.user_data["new_event"]["date_end"] = dt.isoformat()
     return await _ask_city(q.message, ctx, lang)
 
@@ -2369,34 +2434,35 @@ async def _oev_date_day(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     prefix, val = q.data.split(":")
     key = "_osd" if prefix == "osd" else "_oed"
     ctx.user_data[key] = int(val)
-    hour_prefix = "osh" if prefix == "osd" else "oeh"
-    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_hour_keyboard(hour_prefix))
+    period_prefix = "ostp" if prefix == "osd" else "oetp"
+    await q.message.reply_text(s(lang, "ask_hour_start"), reply_markup=make_time_period_keyboard(period_prefix, lang))
     return ORG_EDIT_VALUE
 
 async def _oev_date_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """User picked a time period — show the 30-min slots."""
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    prefix, val = q.data.split(":")
-    key = "_osh" if prefix == "osh" else "_oeh"
-    ctx.user_data[key] = int(val)
-    min_prefix = "osmin" if prefix == "osh" else "oemin"
-    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_minute_keyboard(min_prefix))
+    prefix, period = q.data.split(":")
+    ctx.user_data["_operiod"] = period
+    slot_prefix = "ostm" if prefix == "ostp" else "oetm"
+    await q.message.reply_text(s(lang, "ask_minute"), reply_markup=make_time_slots_keyboard(slot_prefix, period))
     return ORG_EDIT_VALUE
 
 async def _oev_date_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """User picked exact HH:MM slot."""
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    prefix, val = q.data.split(":")
-    minute = int(val)
-    is_start = prefix == "osmin"
+    parts = q.data.split(":")          # ostm:H:M  or  oetm:H:M
+    prefix, h, m = parts[0], int(parts[1]), int(parts[2])
+    is_start = prefix == "ostm"
 
     if is_start:
-        yr, mo, dy, hr = (ctx.user_data.get(k) for k in ("_osy", "_osm", "_osd", "_osh"))
+        yr, mo, dy = (ctx.user_data.get(k) for k in ("_osy", "_osm", "_osd"))
     else:
-        yr, mo, dy, hr = (ctx.user_data.get(k) for k in ("_oey", "_oem", "_oed", "_oeh"))
+        yr, mo, dy = (ctx.user_data.get(k) for k in ("_oey", "_oem", "_oed"))
 
     try:
-        dt = datetime(yr, mo, dy, hr, minute)
+        dt = datetime(yr, mo, dy, h, m)
     except (TypeError, ValueError):
         await q.message.reply_text(s(lang, "invalid_date_format"))
         return ORG_EDIT_VALUE
@@ -2429,7 +2495,7 @@ async def _oev_date_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     # Clear only the date temp keys and the field — keep org_editing_event_id intact
-    for k in ("_osy","_osm","_osd","_osh","_oey","_oem","_oed","_oeh"):
+    for k in ("_osy","_osm","_osd","_oey","_oem","_oed","_operiod"):
         ctx.user_data.pop(k, None)
     ctx.user_data.pop("org_editing_field", None)
 
@@ -2519,7 +2585,7 @@ async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
     event_id = ctx.user_data.pop("org_editing_event_id", None)
     ctx.user_data.pop("org_editing_field", None)
     # clean up any date picker temps
-    for k in ("_osy","_osm","_osd","_osh","_oey","_oem","_oed","_oeh"):
+    for k in ("_osy","_osm","_osd","_oey","_oem","_oed","_operiod"):
         ctx.user_data.pop(k, None)
 
     if not event_id:
@@ -2533,9 +2599,33 @@ async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
     display_old  = str(old_value) if old_value is not None else "—"
     display_new  = str(new_value) if new_value is not None else "—"
 
-    # Confirm to organizer
+    # Translate raw values to human-readable labels
+    def _human_val(raw, lng):
+        if raw is None:
+            return "—"
+        entry = VALUE_DISPLAY.get(str(raw))
+        if entry:
+            return entry.get(lng) or entry.get("ru") or str(raw)
+        # ISO datetime → readable
+        if isinstance(raw, str) and len(raw) >= 16 and "T" in raw:
+            try:
+                return format_date_ru(raw)
+            except Exception:
+                pass
+        return str(raw)
+
+    human_field = (FIELD_DISPLAY_NAMES.get(field, {}).get(lang)
+                   or FIELD_DISPLAY_NAMES.get(field, {}).get("ru")
+                   or field)
+    human_old   = _human_val(old_value, lang)
+    human_new   = _human_val(new_value, lang)
+
+    # Confirm to organizer (human-readable)
     await message.reply_text(
-        s(lang, "org_edit_sent", field=field, old=display_old, new=display_new),
+        s(lang, "org_edit_sent", field=human_field, old=human_old, new=human_new),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_contact_mod"), callback_data="fb:contact"),
+        ]]),
         parse_mode="Markdown"
     )
 
@@ -2548,9 +2638,9 @@ async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
         f"✏️ *Organizer edit request*\n\n"
         f"Event: *{ev['title']}* (#{event_id})\n"
         f"By: {org_name} (ID: {organizer.id})\n\n"
-        f"Field: `{field}`\n"
-        f"Old: `{display_old}`\n"
-        f"New: `{display_new}`",
+        f"Field: `{human_field}`\n"
+        f"Old: `{human_old}`\n"
+        f"New: `{human_new}`",
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("✅ Approve", callback_data=f"org_edit_approve:{data_key}"),
             InlineKeyboardButton("❌ Reject",  callback_data=f"org_edit_reject:{data_key}"),
@@ -2628,6 +2718,9 @@ async def handle_org_edit_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         await ctx.bot.send_message(
             organizer_id,
             s(org_lang, "org_edit_rejected", title=title, field=field),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(s(org_lang, "btn_contact_mod"), callback_data="fb:contact"),
+            ]]),
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -2704,6 +2797,55 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await handle_cancel_reason(update, ctx)
 
 
+
+
+# ─── Helper: set organizer-specific command menu for a user ──
+
+async def _set_organizer_commands(bot, tg_id: int, lang: str = "ru"):
+    """Give this user the organizer command set in their Telegram / menu."""
+    from telegram import BotCommandScopeChat
+    org_commands = {
+        "en": [
+            BotCommand("start",      "👋 Start"),
+            BotCommand("new_event",  "✨ Add new event"),
+            BotCommand("my_events",  "📋 My events"),
+            BotCommand("events",     "📅 Events this month"),
+            BotCommand("my",         "🔔 My subscriptions"),
+            BotCommand("subscribe",  "📌 Subscribe to category"),
+            BotCommand("settings",   "⚙️ Settings"),
+        ],
+        "ru": [
+            BotCommand("start",      "👋 Старт"),
+            BotCommand("new_event",  "✨ Добавить событие"),
+            BotCommand("my_events",  "📋 Мои события"),
+            BotCommand("events",     "📅 События этого месяца"),
+            BotCommand("my",         "🔔 Мои подписки"),
+            BotCommand("subscribe",  "📌 Подписаться на категорию"),
+            BotCommand("settings",   "⚙️ Настройки"),
+        ],
+        "el": [
+            BotCommand("start",      "👋 Έναρξη"),
+            BotCommand("new_event",  "✨ Προσθήκη εκδήλωσης"),
+            BotCommand("my_events",  "📋 Οι εκδηλώσεις μου"),
+            BotCommand("events",     "📅 Εκδηλώσεις αυτόν τον μήνα"),
+            BotCommand("my",         "🔔 Οι συνδρομές μου"),
+            BotCommand("subscribe",  "📌 Εγγραφή σε κατηγορία"),
+            BotCommand("settings",   "⚙️ Ρυθμίσεις"),
+        ],
+        "uk": [
+            BotCommand("start",      "👋 Початок"),
+            BotCommand("new_event",  "✨ Додати подію"),
+            BotCommand("my_events",  "📋 Мої події"),
+            BotCommand("events",     "📅 Події цього місяця"),
+            BotCommand("my",         "🔔 Мої підписки"),
+            BotCommand("subscribe",  "📌 Підписатись на категорію"),
+            BotCommand("settings",   "⚙️ Налаштування"),
+        ],
+    }
+    cmds = org_commands.get(lang, org_commands["en"])
+    await bot.set_my_commands(cmds, scope=BotCommandScopeChat(chat_id=tg_id))
+
+
 # ─── App setup ───────────────────────────────────────────────
 
 def build_application() -> Application:
@@ -2720,14 +2862,14 @@ def build_application() -> Application:
             EV_YEAR:       [CallbackQueryHandler(ev_year,          pattern="^sy:")],
             EV_MONTH:      [CallbackQueryHandler(ev_month,         pattern="^sm:")],
             EV_DAY:        [CallbackQueryHandler(ev_day,           pattern="^sd:")],
-            EV_HOUR:       [CallbackQueryHandler(ev_hour,          pattern="^sh:")],
-            EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^smin:")],
+            EV_HOUR:       [CallbackQueryHandler(ev_hour,          pattern="^stp:")],
+            EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^stm:")],
             EV_END_CHOICE: [CallbackQueryHandler(ev_end_choice,    pattern="^end:")],
             EV_END_YEAR:   [CallbackQueryHandler(ev_end_year,      pattern="^ey:")],
             EV_END_MONTH:  [CallbackQueryHandler(ev_end_month,     pattern="^em:")],
             EV_END_DAY:    [CallbackQueryHandler(ev_end_day,       pattern="^ed:")],
-            EV_END_HOUR:   [CallbackQueryHandler(ev_end_hour,      pattern="^eh:")],
-            EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^emin:")],
+            EV_END_HOUR:   [CallbackQueryHandler(ev_end_hour,      pattern="^etp:")],
+            EV_END_MINUTE: [CallbackQueryHandler(ev_end_minute,    pattern="^etm:")],
             EV_CITY:       [CallbackQueryHandler(ev_get_city,      pattern="^city:")],
             EV_ADDRESS:    [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_get_address)],
             EV_LIMIT:        [CallbackQueryHandler(ev_get_limit,        pattern="^limit:")],
@@ -2795,22 +2937,22 @@ def build_application() -> Application:
                 CallbackQueryHandler(handle_org_edit_field, pattern="^oef:"),
             ],
             ORG_EDIT_VALUE: [
-                # Date picker sub-steps (start date: osy/osm/osd/osh/osmin)
+                # Date picker sub-steps (start date)
                 CallbackQueryHandler(_oev_date_year,    pattern="^osy:"),
                 CallbackQueryHandler(_oev_date_month,   pattern="^osm:"),
                 CallbackQueryHandler(_oev_date_day,     pattern="^osd:"),
-                CallbackQueryHandler(_oev_date_hour,    pattern="^osh:"),
-                CallbackQueryHandler(_oev_date_minute,  pattern="^osmin:"),
-                # Date picker sub-steps (end date: oey/oem/oed/oeh/oemin)
+                CallbackQueryHandler(_oev_date_hour,    pattern="^ostp:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^ostm:"),
+                # Date picker sub-steps (end date)
                 CallbackQueryHandler(_oev_date_year,    pattern="^oey:"),
                 CallbackQueryHandler(_oev_date_month,   pattern="^oem:"),
                 CallbackQueryHandler(_oev_date_day,     pattern="^oed:"),
-                CallbackQueryHandler(_oev_date_hour,    pattern="^oeh:"),
-                CallbackQueryHandler(_oev_date_minute,  pattern="^oemin:"),
+                CallbackQueryHandler(_oev_date_hour,    pattern="^oetp:"),
+                CallbackQueryHandler(_oev_date_minute,  pattern="^oetm:"),
                 # Date confirmation / back
                 CallbackQueryHandler(_oev_date_confirm, pattern="^oev_date_ok:"),
                 CallbackQueryHandler(_oev_date_back,    pattern="^oev_date_back:"),
-                # Cancel button inside edit value (e.g. from date confirm step)
+                # Cancel button inside edit value
                 CallbackQueryHandler(handle_org_edit_field, pattern="^oef:cancel$"),
                 # Non-date button values (category, city, limit, format)
                 CallbackQueryHandler(handle_org_edit_value_callback, pattern="^oev:"),
@@ -2884,6 +3026,7 @@ def build_application() -> Application:
     # ── Bot menu commands (shown in Telegram's "/" menu) ──────
     async def post_init(application: Application) -> None:
         from telegram import BotCommandScopeAllPrivateChats
+        # Participant commands (default for all users)
         commands = {
             "en": [
                 BotCommand("start",     "👋 Start"),
@@ -2926,6 +3069,18 @@ def build_application() -> Application:
                 )
             except Exception as e:
                 logger.warning(f"Could not set commands for {lang_code}: {e}")
+
+        # Set organizer commands for all existing organizers/moderators
+        try:
+            orgs = supabase.table("users").select("tg_id, language")\
+                   .in_("role", ["organizer", "moderator"]).execute()
+            for u in orgs.data:
+                try:
+                    await _set_organizer_commands(application.bot, u["tg_id"], u.get("language", "ru"))
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"Could not set organizer commands on startup: {e}")
 
     app.post_init = post_init
 
