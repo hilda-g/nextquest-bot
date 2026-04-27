@@ -2799,6 +2799,15 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 
+async def cmd_org_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Show the organizer inline menu directly via /org_menu command."""
+    tg_id = update.effective_user.id
+    lang  = get_user_lang(tg_id)
+    if not is_organizer(tg_id):
+        return await update.message.reply_text(s(lang, "need_verification"))
+    await _show_main_menu(update.message, "organizer", lang)
+
+
 # ─── Helper: set organizer-specific command menu for a user ──
 
 async def _set_organizer_commands(bot, tg_id: int, lang: str = "ru"):
@@ -2807,38 +2816,34 @@ async def _set_organizer_commands(bot, tg_id: int, lang: str = "ru"):
     org_commands = {
         "en": [
             BotCommand("start",      "👋 Start"),
-            BotCommand("new_event",  "✨ Add new event"),
-            BotCommand("my_events",  "📋 My events"),
             BotCommand("events",     "📅 Events this month"),
             BotCommand("my",         "🔔 My subscriptions"),
             BotCommand("subscribe",  "📌 Subscribe to category"),
+            BotCommand("org_menu",   "🎪 Organizer menu"),
             BotCommand("settings",   "⚙️ Settings"),
         ],
         "ru": [
             BotCommand("start",      "👋 Старт"),
-            BotCommand("new_event",  "✨ Добавить событие"),
-            BotCommand("my_events",  "📋 Мои события"),
             BotCommand("events",     "📅 События этого месяца"),
             BotCommand("my",         "🔔 Мои подписки"),
             BotCommand("subscribe",  "📌 Подписаться на категорию"),
+            BotCommand("org_menu",   "🎪 Меню организатора"),
             BotCommand("settings",   "⚙️ Настройки"),
         ],
         "el": [
             BotCommand("start",      "👋 Έναρξη"),
-            BotCommand("new_event",  "✨ Προσθήκη εκδήλωσης"),
-            BotCommand("my_events",  "📋 Οι εκδηλώσεις μου"),
             BotCommand("events",     "📅 Εκδηλώσεις αυτόν τον μήνα"),
             BotCommand("my",         "🔔 Οι συνδρομές μου"),
             BotCommand("subscribe",  "📌 Εγγραφή σε κατηγορία"),
+            BotCommand("org_menu",   "🎪 Μενού διοργανωτή"),
             BotCommand("settings",   "⚙️ Ρυθμίσεις"),
         ],
         "uk": [
             BotCommand("start",      "👋 Початок"),
-            BotCommand("new_event",  "✨ Додати подію"),
-            BotCommand("my_events",  "📋 Мої події"),
             BotCommand("events",     "📅 Події цього місяця"),
             BotCommand("my",         "🔔 Мої підписки"),
             BotCommand("subscribe",  "📌 Підписатись на категорію"),
+            BotCommand("org_menu",   "🎪 Меню організатора"),
             BotCommand("settings",   "⚙️ Налаштування"),
         ],
     }
@@ -2977,6 +2982,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("add_organizer",      cmd_add_organizer))
     app.add_handler(CommandHandler("request_organizer",  cmd_request_organizer))
     app.add_handler(CommandHandler("my_events",          cmd_my_events))
+    app.add_handler(CommandHandler("org_menu",           cmd_org_menu))
     app.add_handler(CommandHandler("events",             cmd_events))
     app.add_handler(CommandHandler("my",                 cmd_my_subscriptions))
     app.add_handler(CommandHandler("subscribe",          cmd_subscribe_categories))
