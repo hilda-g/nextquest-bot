@@ -230,7 +230,7 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
     limit     = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
 
     organizer_name = ev.get("organizer_username") or ""
-    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: @{organizer_name}" if organizer_name else ""
+    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {organizer_name}" if organizer_name else ""
 
     if ev.get("external_url"):
         contact_line = f"\n📋 {s(lang, 'card_contact_label')}: [{s(lang, 'btn_register')}]({ev['external_url']})"
