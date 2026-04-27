@@ -1686,7 +1686,7 @@ async def _show_my_events(message, tg_id: int, ctx):
     lang = get_user_lang(tg_id)
     res = supabase.table("events").select("*")\
           .eq("organizer_tg_id", tg_id)\
-          .neq("status", "draft")\
+          .in_("status", ["published", "pending"])\
           .order("date_start", desc=True).limit(5).execute()
     if not res.data:
         return await message.reply_text(s(lang, "no_events_yet"))
@@ -2407,7 +2407,7 @@ async def _oev_date_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         s(lang, "org_edit_date_confirm", dt=dt_display),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_yes"), callback_data=f"oev_date_ok:{dt.isoformat()}"),
-            InlineKeyboardButton(s(lang, "btn_no"),  callback_data="oef:cancel"),
+            InlineKeyboardButton(s(lang, "btn_no"),  callback_data="oev_date_back:"),
         ]]),
         parse_mode="Markdown"
     )
@@ -2421,6 +2421,44 @@ async def _oev_date_confirm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     field = ctx.user_data.get("org_editing_field")
     await _submit_org_edit(ctx, field, new_value, query.message, query.from_user)
     return ConversationHandler.END
+
+
+async def _oev_date_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer tapped 'No' on date confirm — go back to the field picker without losing event_id."""
+    lang = get_user_lang(update.effective_user.id)
+    query = update.callback_query
+    await query.answer()
+    # Clear only the date temp keys and the field — keep org_editing_event_id intact
+    for k in ("_osy","_osm","_osd","_osh","_oey","_oem","_oed","_oeh"):
+        ctx.user_data.pop(k, None)
+    ctx.user_data.pop("org_editing_field", None)
+
+    event_id = ctx.user_data.get("org_editing_event_id")
+    if not event_id:
+        await query.message.reply_text(s(lang, "org_edit_session_expired"), parse_mode="Markdown")
+        return ConversationHandler.END
+
+    ev = supabase.table("events").select("title").eq("id", event_id).single().execute().data
+    title = ev["title"] if ev else "?"
+    await query.message.reply_text(
+        s(lang, "org_edit_title", title=title),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(s(lang, "ef_title"),        callback_data="oef:title"),
+             InlineKeyboardButton(s(lang, "ef_description"),  callback_data="oef:description")],
+            [InlineKeyboardButton(s(lang, "ef_city"),         callback_data="oef:location_city"),
+             InlineKeyboardButton(s(lang, "ef_address"),      callback_data="oef:location_address")],
+            [InlineKeyboardButton(s(lang, "ef_date_start"),   callback_data="oef:date_start"),
+             InlineKeyboardButton(s(lang, "ef_date_end"),     callback_data="oef:date_end")],
+            [InlineKeyboardButton(s(lang, "ef_category"),     callback_data="oef:category"),
+             InlineKeyboardButton(s(lang, "ef_limit"),        callback_data="oef:max_participants")],
+            [InlineKeyboardButton(s(lang, "ef_reg_url"),      callback_data="oef:external_url"),
+             InlineKeyboardButton(s(lang, "ef_cover"),        callback_data="oef:cover_image_url")],
+            [InlineKeyboardButton(s(lang, "ef_format"),       callback_data="oef:format"),
+             InlineKeyboardButton(s(lang, "btn_cancel_str"),  callback_data="oef:cancel")],
+        ]),
+        parse_mode="Markdown"
+    )
+    return ORG_EDIT_FIELD
 
 
 async def handle_org_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2769,8 +2807,9 @@ def build_application() -> Application:
                 CallbackQueryHandler(_oev_date_day,     pattern="^oed:"),
                 CallbackQueryHandler(_oev_date_hour,    pattern="^oeh:"),
                 CallbackQueryHandler(_oev_date_minute,  pattern="^oemin:"),
-                # Date confirmation
+                # Date confirmation / back
                 CallbackQueryHandler(_oev_date_confirm, pattern="^oev_date_ok:"),
+                CallbackQueryHandler(_oev_date_back,    pattern="^oev_date_back:"),
                 # Cancel button inside edit value (e.g. from date confirm step)
                 CallbackQueryHandler(handle_org_edit_field, pattern="^oef:cancel$"),
                 # Non-date button values (category, city, limit, format)
