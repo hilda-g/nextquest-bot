@@ -323,28 +323,89 @@ STRINGS = {
         "uk": "Скільки місць? Введи число:",
     },
     "ask_format": {
-        "en": "Event format?",
-        "ru": "Формат события?",
-        "el": "Μορφή εκδήλωσης;",
-        "uk": "Формат події?",
+        "en": (
+            "🎭 *What type of organizer are you?*\n\n"
+            "🔒 *Private* — personal events, home games, small gatherings\n"
+            "✨ *Community* — clubs, regular meetups, community groups\n"
+            "🎉 *Official* — big conventions, branded events, companies\n\n"
+            "_This is saved to your profile and won't be asked again._"
+        ),
+        "ru": (
+            "🎭 *Кто ты как организатор?*\n\n"
+            "🔒 *Private* — личные события, домашние игры, небольшие сборки\n"
+            "✨ *Community* — клубы, регулярные встречи, сообщества\n"
+            "🎉 *Official* — большие конвенты, брендированные ивенты, компании\n\n"
+            "_Это сохранится в профиле и больше не спросим._"
+        ),
+        "el": (
+            "🎭 *Τι είδους διοργανωτής είσαι;*\n\n"
+            "🔒 *Private* — προσωπικές εκδηλώσεις, οικιακά παιχνίδια, μικρές συναντήσεις\n"
+            "✨ *Community* — σύλλογοι, τακτικές συναντήσεις, κοινότητες\n"
+            "🎉 *Official* — μεγάλα συνέδρια, branded events, εταιρείες\n\n"
+            "_Αποθηκεύεται στο προφίλ σου και δεν θα ρωτηθεί ξανά._"
+        ),
+        "uk": (
+            "🎭 *Хто ти як організатор?*\n\n"
+            "🔒 *Private* — особисті події, домашні ігри, маленькі збори\n"
+            "✨ *Community* — клуби, регулярні зустрічі, спільноти\n"
+            "🎉 *Official* — великі конвенти, брендовані події, компанії\n\n"
+            "_Це збережеться у профілі і більше не питатимемо._"
+        ),
     },
     "btn_format_private": {
-        "en": "🔒 Private — closed party",
-        "ru": "🔒 Private — закрытая вечеринка",
-        "el": "🔒 Private — κλειστή εκδήλωση",
-        "uk": "🔒 Private — закрита вечірка",
+        "en": "🔒 Private",
+        "ru": "🔒 Private",
+        "el": "🔒 Private",
+        "uk": "🔒 Private",
     },
     "btn_format_community": {
-        "en": "✨ Community — open community event",
-        "ru": "✨ Community — открытое комьюнити-событие",
-        "el": "✨ Community — ανοιχτή κοινοτική εκδήλωση",
-        "uk": "✨ Community — відкрита подія спільноти",
+        "en": "✨ Community",
+        "ru": "✨ Community",
+        "el": "✨ Community",
+        "uk": "✨ Community",
     },
     "btn_format_official": {
-        "en": "🎉 Official — public event",
-        "ru": "🎉 Official — публичное мероприятие",
-        "el": "🎉 Official — δημόσια εκδήλωση",
-        "uk": "🎉 Official — публічний захід",
+        "en": "🎉 Official",
+        "ru": "🎉 Official",
+        "el": "🎉 Official",
+        "uk": "🎉 Official",
+    },
+    # ── Organizer profile setup (asked once) ─────────────────
+    "ask_org_contact": {
+        "en": "📋 How can participants reach you to register?\n\nSend @username, link, phone or any text:",
+        "ru": "📋 Как с тобой связаться для регистрации?\n\nНапиши @username, ссылку, телефон или любой текст:",
+        "el": "📋 Πώς μπορούν να επικοινωνήσουν μαζί σου για εγγραφή;\n\nΣτείλε @username, σύνδεσμο, τηλέφωνο ή οτιδήποτε:",
+        "uk": "📋 Як з тобою зв'язатись для реєстрації?\n\nНапиши @username, посилання, телефон або будь-який текст:",
+    },
+    "ask_org_club_name": {
+        "en": "🏷 What is your *club / organization name?*",
+        "ru": "🏷 Как называется твой *клуб / организация?*",
+        "el": "🏷 Ποιο είναι το όνομα του *συλλόγου / οργανισμού* σου;",
+        "uk": "🏷 Як називається твій *клуб / організація?*",
+    },
+    "ask_org_club_link": {
+        "en": "🔗 Your club / organization *link* (website, VK, TG channel, etc.):\n\n_Send `-` if you don't have one._",
+        "ru": "🔗 Ссылка на твой клуб / организацию (сайт, VK, TG канал и т.д.):\n\n_Напиши `-` если нет._",
+        "el": "🔗 Σύνδεσμος του συλλόγου / οργανισμού σου (ιστοσελίδα, κανάλι TG κ.λπ.):\n\n_Στείλε `-` αν δεν έχεις._",
+        "uk": "🔗 Посилання на твій клуб / організацію (сайт, VK, TG канал тощо):\n\n_Надішли `-` якщо немає._",
+    },
+    "org_profile_saved": {
+        "en": "✅ Organizer profile saved! Now let's fill in the event details.",
+        "ru": "✅ Профиль организатора сохранён! Теперь заполним детали события.",
+        "el": "✅ Το προφίλ διοργανωτή αποθηκεύτηκε! Τώρα ας συμπληρώσουμε τα στοιχεία εκδήλωσης.",
+        "uk": "✅ Профіль організатора збережено! Тепер заповнимо деталі події.",
+    },
+    "btn_change_org_type": {
+        "en": "🔄 Change Organizer Type",
+        "ru": "🔄 Изменить тип организатора",
+        "el": "🔄 Αλλαγή τύπου διοργανωτή",
+        "uk": "🔄 Змінити тип організатора",
+    },
+    "org_type_reset": {
+        "en": "🔄 Organizer profile cleared. The next time you create an event, you'll be asked to set it up again.",
+        "ru": "🔄 Профиль организатора сброшен. При следующем создании события тебя попросят настроить его заново.",
+        "el": "🔄 Το προφίλ διοργανωτή διαγράφηκε. Την επόμενη φορά που θα δημιουργήσεις εκδήλωση, θα σε ζητηθεί να το ρυθμίσεις ξανά.",
+        "uk": "🔄 Профіль організатора скинуто. Наступного разу при створенні події тебе попросять налаштувати його знову.",
     },
     "step_title": {
         "en": "Step 4/5: *Event name?*",
