@@ -220,23 +220,127 @@ STRINGS = {
         "el": "🗑 Νέα αρχή",
         "uk": "🗑 Почати знову",
     },
-    "step_format": {
-        "en": "Step 1/6: *What kind of event are you organizing?*",
-        "ru": "Шаг 1/6: *Какой формат у твоего события?*",
-        "el": "Βήμα 1/6: *Τι είδους εκδήλωση διοργανώνεις;*",
-        "uk": "Крок 1/6: *Який формат твоєї події?*",
+    # ── One-time organizer profile setup ─────────────────────
+    "org_setup_format": {
+        "en": (
+            "👋 *Before your first event — quick organizer setup* (saved once, you can change it any time)\n\n"
+            "*What type of organizer are you?*\n\n"
+            "🔒 *Private* — personal events, home games, small gatherings\n"
+            "✨ *Community* — clubs, regular meetups, community groups\n"
+            "🎉 *Official* — big conventions, branded events, companies"
+        ),
+        "ru": (
+            "👋 *Быстрая настройка перед первым событием* (сохраняется раз, можно изменить в любое время)\n\n"
+            "*Какой ты организатор?*\n\n"
+            "🔒 *Private* — личные события, домашние игры, небольшие встречи\n"
+            "✨ *Community* — клубы, регулярные митапы, сообщества\n"
+            "🎉 *Official* — большие конвенты, брендовые мероприятия, компании"
+        ),
+        "el": (
+            "👋 *Γρήγορη ρύθμιση πριν από την πρώτη εκδήλωσή σου* (αποθηκεύεται μία φορά, μπορείς να το αλλάξεις)\n\n"
+            "*Τι είδους διοργανωτής είσαι;*\n\n"
+            "🔒 *Private* — προσωπικές εκδηλώσεις, παιχνίδια στο σπίτι\n"
+            "✨ *Community* — σύλλογοι, τακτικές συναντήσεις, κοινότητες\n"
+            "🎉 *Official* — μεγάλα συνέδρια, εταιρικές εκδηλώσεις"
+        ),
+        "uk": (
+            "👋 *Швидке налаштування перед першою подією* (зберігається раз, можна змінити будь-коли)\n\n"
+            "*Який ти організатор?*\n\n"
+            "🔒 *Private* — особисті події, домашні ігри, невеликі зустрічі\n"
+            "✨ *Community* — клуби, регулярні мітапи, спільноти\n"
+            "🎉 *Official* — великі конвенти, брендові заходи, компанії"
+        ),
     },
+    "org_setup_name_community": {
+        "en": "Your club or community name:",
+        "ru": "Название твоего клуба или сообщества:",
+        "el": "Όνομα συλλόγου ή κοινότητας:",
+        "uk": "Назва твого клубу або спільноти:",
+    },
+    "org_setup_name_official": {
+        "en": "Organization or brand name:",
+        "ru": "Название организации или бренда:",
+        "el": "Όνομα οργανισμού ή brand:",
+        "uk": "Назва організації або бренду:",
+    },
+    "org_setup_link_community": {
+        "en": "Link to your Telegram group / channel / website (or `-` to skip):",
+        "ru": "Ссылка на Telegram-группу / канал / сайт (или `-` чтобы пропустить):",
+        "el": "Σύνδεσμος ομάδας / καναλιού / ιστοσελίδας (ή `-` για παράλειψη):",
+        "uk": "Посилання на Telegram-групу / канал / сайт (або `-` щоб пропустити):",
+    },
+    "org_setup_link_official": {
+        "en": "Official website URL (or `-` to skip):",
+        "ru": "Ссылка на официальный сайт (или `-` чтобы пропустить):",
+        "el": "URL επίσημης ιστοσελίδας (ή `-` για παράλειψη):",
+        "uk": "URL офіційного сайту (або `-` щоб пропустити):",
+    },
+    "org_setup_contact_private": {
+        "en": "How can attendees reach you to register?\nSend @username, link, phone or any text (or `-` to skip):",
+        "ru": "Как с тобой связаться для регистрации?\nНапиши @username, ссылку, телефон или любой текст (или `-` пропустить):",
+        "el": "Πώς μπορούν να επικοινωνήσουν μαζί σου;\nΣτείλε @username, σύνδεσμο, τηλέφωνο (ή `-` για παράλειψη):",
+        "uk": "Як з тобою зв'язатись для реєстрації?\nНапиши @username, посилання, телефон або будь-який текст (або `-` пропустити):",
+    },
+    "org_setup_contact_community": {
+        "en": "DM contact for questions? (the person attendees should message)\n@username, phone, or any text (or `-` to skip):",
+        "ru": "Контакт для вопросов? (кому писать участникам)\n@username, телефон или любой текст (или `-` пропустить):",
+        "el": "Επαφή για ερωτήσεις; (σε ποιον να γράφουν οι συμμετέχοντες)\n@username, τηλέφωνο (ή `-` για παράλειψη):",
+        "uk": "Контакт для запитань? (кому писати учасникам)\n@username, телефон або будь-який текст (або `-` пропустити):",
+    },
+    "org_setup_contact_official": {
+        "en": "Contact info for attendees? Email, phone, or any text (or `-` to skip):",
+        "ru": "Контакт для участников? Email, телефон или любой текст (или `-` пропустить):",
+        "el": "Στοιχεία επικοινωνίας; Email, τηλέφωνο (ή `-` για παράλειψη):",
+        "uk": "Контакт для учасників? Email, телефон або будь-який текст (або `-` пропустити):",
+    },
+    "org_setup_saved": {
+        "en": "✅ Organizer profile updated: *{fmt}*{name}",
+        "ru": "✅ Профиль организатора обновлён: *{fmt}*{name}",
+        "el": "✅ Προφίλ διοργανωτή ενημερώθηκε: *{fmt}*{name}",
+        "uk": "✅ Профіль організатора оновлено: *{fmt}*{name}",
+    },
+    "org_setup_done_continue": {
+        "en": "✅ Profile saved! Now let's create your event.",
+        "ru": "✅ Профиль сохранён! Теперь создадим событие.",
+        "el": "✅ Το προφίλ αποθηκεύτηκε! Ας δημιουργήσουμε την εκδήλωση.",
+        "uk": "✅ Профіль збережено! Тепер створимо подію.",
+    },
+    "btn_change_org_type": {
+        "en": "🔄 Change Organizer Type",
+        "ru": "🔄 Изменить тип организатора",
+        "el": "🔄 Αλλαγή τύπου διοργανωτή",
+        "uk": "🔄 Змінити тип організатора",
+    },
+    "btn_format_private": {
+        "en": "🔒 Private — personal events, home games",
+        "ru": "🔒 Private — личные события, домашние игры",
+        "el": "🔒 Private — προσωπικές εκδηλώσεις",
+        "uk": "🔒 Private — особисті події, домашні ігри",
+    },
+    "btn_format_community": {
+        "en": "✨ Community — clubs, regular meetups",
+        "ru": "✨ Community — клубы, регулярные митапы",
+        "el": "✨ Community — σύλλογοι, τακτικές συναντήσεις",
+        "uk": "✨ Community — клуби, регулярні мітапи",
+    },
+    "btn_format_official": {
+        "en": "🎉 Official — conventions, branded events",
+        "ru": "🎉 Official — конвенты, брендовые мероприятия",
+        "el": "🎉 Official — συνέδρια, εταιρικές εκδηλώσεις",
+        "uk": "🎉 Official — конвенти, брендові заходи",
+    },
+
     "step_category": {
-        "en": "Step 2/6: *Event category?*",
-        "ru": "Шаг 2/6: *Категория события?*",
-        "el": "Βήμα 2/6: *Κατηγορία εκδήλωσης;*",
-        "uk": "Крок 2/6: *Категорія події?*",
+        "en": "Step 1/5: *Event category?*",
+        "ru": "Шаг 1/5: *Категория события?*",
+        "el": "Βήμα 1/5: *Κατηγορία εκδήλωσης;*",
+        "uk": "Крок 1/5: *Категорія події?*",
     },
     "step_date_start": {
-        "en": "Step 3/6: *Start date — year?*",
-        "ru": "Шаг 3/6: *Дата начала — год?*",
-        "el": "Βήμα 3/6: *Ημερομηνία έναρξης — έτος;*",
-        "uk": "Крок 3/6: *Дата початку — рік?*",
+        "en": "Step 2/5: *Start date — year?*",
+        "ru": "Шаг 2/5: *Дата начала — год?*",
+        "el": "Βήμα 2/5: *Ημερομηνία έναρξης — έτος;*",
+        "uk": "Крок 2/5: *Дата початку — рік?*",
     },
     "ask_month": {
         "en": "Month?",
@@ -293,10 +397,10 @@ STRINGS = {
         "uk": "Хвилини закінчення?",
     },
     "step_city": {
-        "en": "Step 4/6: *City?*",
-        "ru": "Шаг 4/6: *Город?*",
-        "el": "Βήμα 4/6: *Πόλη;*",
-        "uk": "Крок 4/6: *Місто?*",
+        "en": "Step 3/5: *City?*",
+        "ru": "Шаг 3/5: *Город?*",
+        "el": "Βήμα 3/5: *Πόλη;*",
+        "uk": "Крок 3/5: *Місто?*",
     },
     "ask_address": {
         "en": "Address? (street, venue)",
@@ -328,90 +432,11 @@ STRINGS = {
         "el": "Εισαγωγή αριθμού ορίου συμμετεχόντων:",
         "uk": "Введи ліміт учасників числом:",
     },
-    "ask_format": {
-        "en": "Event format?\n\n🔒 *Private* — home game, small closed gathering\n✨ *Community* — club event, regular meetup\n🎉 *Official* — convention, branded public event",
-        "ru": "Формат события?\n\n🔒 *Private* — домашняя игра, небольшая закрытая встреча\n✨ *Community* — клубное событие, регулярный митап\n🎉 *Official* — конвент, публичное мероприятие бренда",
-        "el": "Μορφή εκδήλωσης;\n\n🔒 *Private* — παιχνίδι στο σπίτι, μικρή κλειστή συγκέντρωση\n✨ *Community* — εκδήλωση συλλόγου, τακτική συνάντηση\n🎉 *Official* — συνέδριο, δημόσια εκδήλωση brand",
-        "uk": "Формат події?\n\n🔒 *Private* — домашня гра, невелика закрита зустріч\n✨ *Community* — клубна подія, регулярний мітап\n🎉 *Official* — конвент, публічний захід бренду",
-    },
-    "btn_format_private": {
-        "en": "🔒 Private",
-        "ru": "🔒 Private",
-        "el": "🔒 Private",
-        "uk": "🔒 Private",
-    },
-    "btn_format_community": {
-        "en": "✨ Community",
-        "ru": "✨ Community",
-        "el": "✨ Community",
-        "uk": "✨ Community",
-    },
-    "btn_format_official": {
-        "en": "🎉 Official",
-        "ru": "🎉 Official",
-        "el": "🎉 Official",
-        "uk": "🎉 Official",
-    },
     "step_title": {
-        "en": "Step 6/6: *Event name?*",
-        "ru": "Шаг 6/6: *Название события?*",
-        "el": "Βήμα 6/6: *Όνομα εκδήλωσης;*",
-        "uk": "Крок 6/6: *Назва події?*",
-    },
-    # ── Step 5 — organizer info (format-aware) ────────────────
-    "step_organizer": {
-        "en": "Step 5/6: *Organizer info*",
-        "ru": "Шаг 5/6: *Информация об организаторе*",
-        "el": "Βήμα 5/6: *Στοιχεία διοργανωτή*",
-        "uk": "Крок 5/6: *Інформація про організатора*",
-    },
-    "ask_org_name_private": {
-        "en": "Your name or @username for attendees:",
-        "ru": "Твоё имя или @username для участников:",
-        "el": "Το όνομά σου ή @username για τους συμμετέχοντες:",
-        "uk": "Твоє ім'я або @username для учасників:",
-    },
-    "ask_org_name_community": {
-        "en": "Club or community name:",
-        "ru": "Название клуба или сообщества:",
-        "el": "Όνομα συλλόγου ή κοινότητας:",
-        "uk": "Назва клубу або спільноти:",
-    },
-    "ask_org_name_official": {
-        "en": "Organization or brand name:",
-        "ru": "Название организации или бренда:",
-        "el": "Όνομα οργανισμού ή brand:",
-        "uk": "Назва організації або бренду:",
-    },
-    "ask_org_link_community": {
-        "en": "Link to your Telegram group / channel / website (or `-` to skip):",
-        "ru": "Ссылка на Telegram-группу / канал / сайт (или `-` чтобы пропустить):",
-        "el": "Σύνδεσμος Telegram ομάδας / καναλιού / ιστοσελίδας (ή `-` για παράλειψη):",
-        "uk": "Посилання на Telegram-групу / канал / сайт (або `-` щоб пропустити):",
-    },
-    "ask_org_link_official": {
-        "en": "Official website URL (or `-` to skip):",
-        "ru": "Ссылка на официальный сайт (или `-` чтобы пропустить):",
-        "el": "URL επίσημης ιστοσελίδας (ή `-` για παράλειψη):",
-        "uk": "URL офіційного сайту (або `-` щоб пропустити):",
-    },
-    "ask_org_contact_private": {
-        "en": "How can attendees reach you? @username, phone, or any text (or `-` to skip):",
-        "ru": "Как с тобой связаться? @username, телефон или любой текст (или `-` чтобы пропустить):",
-        "el": "Πώς να επικοινωνήσουν μαζί σου; @username, τηλέφωνο ή κείμενο (ή `-` για παράλειψη):",
-        "uk": "Як з тобою зв'язатись? @username, телефон або будь-який текст (або `-` щоб пропустити):",
-    },
-    "ask_org_contact_community": {
-        "en": "DM contact for questions? @username, phone, or any text (or `-` to skip):",
-        "ru": "Контакт для вопросов (DM)? @username, телефон или любой текст (или `-` чтобы пропустить):",
-        "el": "Επαφή για ερωτήσεις; @username, τηλέφωνο ή κείμενο (ή `-` για παράλειψη):",
-        "uk": "Контакт для запитань (DM)? @username, телефон або будь-який текст (або `-` щоб пропустити):",
-    },
-    "ask_org_contact_official": {
-        "en": "Contact info for attendees? Email, phone, or any text (or `-` to skip):",
-        "ru": "Контакт для участников? Email, телефон или любой текст (или `-` чтобы пропустить):",
-        "el": "Στοιχεία επικοινωνίας; Email, τηλέφωνο ή κείμενο (ή `-` για παράλειψη):",
-        "uk": "Контакт для учасників? Email, телефон або будь-який текст (або `-` щоб пропустити):",
+        "en": "Step 4/5: *Event name?*",
+        "ru": "Шаг 4/5: *Название события?*",
+        "el": "Βήμα 4/5: *Όνομα εκδήλωσης;*",
+        "uk": "Крок 4/5: *Назва події?*",
     },
     "ask_description": {
         "en": "Event description:",
