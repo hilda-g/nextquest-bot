@@ -109,7 +109,9 @@ REJECT_REASONS = [
     EV_LIMIT_CUSTOM,
     # Organizer post-publish edit wizard states
     ORG_EDIT_FIELD, ORG_EDIT_VALUE,
-) = range(28)
+    # Organizer profile setup (asked once before first event)
+    EV_ORG_TYPE, EV_ORG_NAME, EV_ORG_LINK, EV_ORG_CONTACT,
+) = range(32)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -134,6 +136,33 @@ def get_user_lang(tg_id: int) -> str:
 
 def set_user_lang(tg_id: int, lang: str):
     supabase.table("users").update({"language": lang}).eq("tg_id", tg_id).execute()
+
+
+# ─── Organizer profile helpers ────────────────────────────────
+# Reads/writes org_format, org_name, org_link, org_contact, onboarded
+# columns on the users table.
+
+def _get_org_profile(tg_id: int) -> dict | None:
+    """Return the organizer profile dict for a user, or None if not onboarded."""
+    res = supabase.table("users").select(
+        "org_format, org_name, org_link, org_contact, onboarded"
+    ).eq("tg_id", tg_id).execute()
+    if not res.data:
+        return None
+    row = res.data[0]
+    if row.get("onboarded") and row.get("org_format"):
+        return row
+    return None
+
+def _save_org_profile(tg_id: int, data: dict):
+    """Write org profile fields to users table and mark onboarded=True."""
+    supabase.table("users").update({
+        "org_format":  data.get("org_format"),
+        "org_name":    data.get("org_name"),
+        "org_link":    data.get("org_link"),
+        "org_contact": data.get("org_contact"),
+        "onboarded":   True,
+    }).eq("tg_id", tg_id).execute()
 
 
 def is_moderator(tg_id: int) -> bool:
@@ -1243,12 +1272,116 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
     await _save_draft(ctx)
     lang = get_user_lang(q.from_user.id)
-    await q.message.reply_text(
+
+    # Check if organizer profile already set — skip format/org questions if so
+    profile = _get_org_profile(q.from_user.id)
+    if profile:
+        # Pre-fill event from saved profile
+        ctx.user_data["new_event"]["format"] = profile["org_format"]
+        if profile.get("org_name"):
+            ctx.user_data["new_event"]["organizer_username"] = profile["org_name"]
+        if profile.get("org_contact"):
+            ctx.user_data["new_event"]["organizer_contacts"] = profile["org_contact"]
+        # Jump straight to date picker
+        await q.message.reply_text(
+            s(lang, "step_date_start"),
+            reply_markup=make_year_keyboard("sy"),
+            parse_mode="Markdown"
+        )
+        return EV_YEAR
+
+    # No profile yet — ask format first
+    return await _ask_org_format(q.message, lang)
+
+
+# ─── Organizer profile setup (asked once) ────────────────────
+
+async def _ask_org_format(message, lang: str) -> int:
+    """Ask the organizer what type they are. Called only once per profile."""
+    await message.reply_text(
+        s(lang, "ask_format"),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="orgfmt:private"),
+            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="orgfmt:community"),
+            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="orgfmt:official"),
+        ]]),
+        parse_mode="Markdown"
+    )
+    return EV_ORG_TYPE
+
+
+async def ev_org_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer chose their format type."""
+    q = update.callback_query; await q.answer()
+    lang = get_user_lang(q.from_user.id)
+    fmt = q.data.split(":")[1]   # private / community / official
+    ctx.user_data["_org_format"] = fmt
+    ctx.user_data["new_event"]["format"] = fmt
+
+    if fmt == "private":
+        # Private: no org name/link — just ask contact
+        ctx.user_data["_org_name"] = None
+        ctx.user_data["_org_link"] = None
+        await q.message.reply_text(s(lang, "ask_org_contact"), parse_mode="Markdown")
+        return EV_ORG_CONTACT
+    else:
+        # Community / Official: ask club name first
+        await q.message.reply_text(s(lang, "ask_org_club_name"), parse_mode="Markdown")
+        return EV_ORG_NAME
+
+
+async def ev_org_name(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer typed their club/org name."""
+    lang = get_user_lang(update.effective_user.id)
+    ctx.user_data["_org_name"] = update.message.text.strip()
+    ctx.user_data["new_event"]["organizer_username"] = update.message.text.strip()
+    await update.message.reply_text(s(lang, "ask_org_club_link"), parse_mode="Markdown")
+    return EV_ORG_LINK
+
+
+async def ev_org_link(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer typed their club/org link (or '-' to skip)."""
+    lang = get_user_lang(update.effective_user.id)
+    raw = update.message.text.strip()
+    ctx.user_data["_org_link"] = None if raw == "-" else raw
+    await update.message.reply_text(s(lang, "ask_org_contact"), parse_mode="Markdown")
+    return EV_ORG_CONTACT
+
+
+async def ev_org_contact(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Organizer typed their personal contact. Save profile, then continue to date."""
+    lang = get_user_lang(update.effective_user.id)
+    tg_id = update.effective_user.id
+    contact = update.message.text.strip()
+
+    fmt      = ctx.user_data.pop("_org_format", ctx.user_data["new_event"].get("format"))
+    org_name = ctx.user_data.pop("_org_name", None)
+    org_link = ctx.user_data.pop("_org_link", None)
+
+    # Save profile to users table so it won't be asked again
+    _save_org_profile(tg_id, {
+        "org_format":  fmt,
+        "org_name":    org_name,
+        "org_link":    org_link,
+        "org_contact": contact,
+    })
+
+    # Pre-fill event fields from profile
+    ctx.user_data["new_event"]["format"] = fmt
+    ctx.user_data["new_event"]["organizer_contacts"] = contact
+    if org_name:
+        ctx.user_data["new_event"]["organizer_username"] = org_name
+
+    await update.message.reply_text(s(lang, "org_profile_saved"), parse_mode="Markdown")
+
+    # Continue to date picker
+    await update.message.reply_text(
         s(lang, "step_date_start"),
         reply_markup=make_year_keyboard("sy"),
         parse_mode="Markdown"
     )
     return EV_YEAR
+
 
 # Шаг 2 — дата (кнопки)
 async def ev_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1404,15 +1537,8 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if val > 0:
         ctx.user_data["new_event"]["max_participants"] = val
     await _save_draft(ctx)
-    await q.message.reply_text(
-        s(lang, "ask_format"),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
-            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
-            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
-        ]])
-    )
-    return EV_FORMAT
+    await q.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
+    return EV_TITLE
 
 async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Handle free-text custom participant limit input."""
@@ -1423,17 +1549,11 @@ async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return EV_LIMIT_CUSTOM
     ctx.user_data["new_event"]["max_participants"] = int(text)
     await _save_draft(ctx)
-    await update.message.reply_text(
-        s(lang, "ask_format"),
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(s(lang, "btn_format_private"),   callback_data="fmt:private"),
-            InlineKeyboardButton(s(lang, "btn_format_community"), callback_data="fmt:community"),
-            InlineKeyboardButton(s(lang, "btn_format_official"),  callback_data="fmt:official"),
-        ]])
-    )
-    return EV_FORMAT
+    await update.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
+    return EV_TITLE
 
 async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Legacy handler kept for ConversationHandler state mapping — no longer reached in normal flow."""
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
@@ -2840,7 +2960,20 @@ async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     new_state = not bool(ev.get("registration_closed", False))
     supabase.table("events").update({"registration_closed": new_state}).eq("id", event_id).execute()
 
-    org_name = f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name
+    # Build a descriptive organizer label from their saved profile
+    profile = _get_org_profile(query.from_user.id)
+    if profile:
+        fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(
+            profile.get("org_format", ""), "")
+        org_name  = profile.get("org_name") or ""
+        org_contact = profile.get("org_contact") or ""
+        if org_name:
+            org_display = f"{fmt_label}\n👤 {org_name}\n📋 {org_contact}"
+        else:
+            org_display = f"{fmt_label}\n📋 {org_contact}"
+    else:
+        tg_user = query.from_user
+        org_display = f"@{tg_user.username}" if tg_user.username else tg_user.full_name
 
     # Confirm to organizer (localized)
     msg_key = "org_reg_closed" if new_state else "org_reg_reopened"
@@ -2857,7 +2990,7 @@ async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             MODERATOR_ID,
             f"{icon} *Registration {action_label}*\n\n"
             f"Event: *{ev['title']}* (#{event_id})\n"
-            f"By organizer: {org_name} (ID: {query.from_user.id})\n\n"
+            f"By organizer:\n{org_display}\n\n"
             f"Website updated automatically.",
             parse_mode="Markdown"
         )
@@ -2893,7 +3026,50 @@ async def cmd_org_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang  = get_user_lang(tg_id)
     if not is_organizer(tg_id):
         return await update.message.reply_text(s(lang, "need_verification"))
-    await _show_main_menu(update.message, "organizer", lang)
+
+    profile = _get_org_profile(tg_id)
+    if profile:
+        fmt       = profile.get("org_format", "")
+        org_name  = profile.get("org_name") or ""
+        org_contact = profile.get("org_contact") or ""
+        fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+
+        if org_name:
+            profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {org_name}\n📋 {org_contact}"
+        else:
+            profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n📋 {org_contact}"
+    else:
+        profile_text = s(lang, "menu_organizer")
+
+    await update.message.reply_text(
+        profile_text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(s(lang, "btn_new_event"),      callback_data="menu:new_event")],
+            [InlineKeyboardButton(s(lang, "btn_my_events"),      callback_data="menu:my_events")],
+            [InlineKeyboardButton(s(lang, "btn_feedback"),       callback_data="menu:feedback")],
+            [InlineKeyboardButton(s(lang, "btn_change_org_type"), callback_data="org_profile:reset")],
+        ]),
+        parse_mode="Markdown"
+    )
+
+
+async def handle_org_profile_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle org_profile:reset — clear the organizer profile so it's asked again on next event."""
+    query = update.callback_query
+    await query.answer()
+    tg_id = query.from_user.id
+    lang  = get_user_lang(tg_id)
+    if not is_organizer(tg_id):
+        return
+    # Clear org profile fields and mark onboarded=False
+    supabase.table("users").update({
+        "org_format":  None,
+        "org_name":    None,
+        "org_link":    None,
+        "org_contact": None,
+        "onboarded":   False,
+    }).eq("tg_id", tg_id).execute()
+    await query.message.reply_text(s(lang, "org_type_reset"), parse_mode="Markdown")
 
 
 # ─── Helper: set organizer-specific command menu for a user ──
@@ -2952,6 +3128,10 @@ def build_application() -> Application:
         ],
         states={
             EV_CATEGORY:   [CallbackQueryHandler(ev_get_category, pattern="^cat:")],
+            EV_ORG_TYPE:   [CallbackQueryHandler(ev_org_type,     pattern="^orgfmt:")],
+            EV_ORG_NAME:   [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_org_name)],
+            EV_ORG_LINK:   [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_org_link)],
+            EV_ORG_CONTACT:[MessageHandler(filters.TEXT & ~filters.COMMAND, ev_org_contact)],
             EV_YEAR:       [CallbackQueryHandler(ev_year,          pattern="^sy:")],
             EV_MONTH:      [CallbackQueryHandler(ev_month,         pattern="^sm:")],
             EV_DAY:        [CallbackQueryHandler(ev_day,           pattern="^sd:")],
@@ -3077,6 +3257,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("settings",           cmd_settings))
 
     # Callbacks
+    app.add_handler(CallbackQueryHandler(handle_org_profile_callback,         pattern="^org_profile:"))
     app.add_handler(CallbackQueryHandler(handle_setlang,                    pattern="^setlang:"))
     app.add_handler(CallbackQueryHandler(handle_settings_callback,          pattern="^settings:"))
     app.add_handler(CallbackQueryHandler(handle_onboard,                    pattern="^onboard:"))
