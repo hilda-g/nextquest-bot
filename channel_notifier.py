@@ -120,7 +120,15 @@ def build_new_event_message(ev: dict) -> str:
     maps_link = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
     organizer_name = ev.get("organizer_username") or ""
-    organizer_line = f"\n🎪 Organizer: @{organizer_name}" if organizer_name else ""
+    org_name_display = ev.get("org_name") or organizer_name
+    org_link = ev.get("organizer_link") or ev.get("org_link") or ""
+
+    if org_name_display and org_link:
+        organizer_line = f"\n🎪 Organizer: [{org_name_display}]({org_link})"
+    elif org_name_display:
+        organizer_line = f"\n🎪 Organizer: {org_name_display}"
+    else:
+        organizer_line = ""
 
     if ev.get("external_url"):
         contact_line = f"\n📋 Contact: [Register]({ev['external_url']})"

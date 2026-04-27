@@ -1669,10 +1669,16 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ]])
     cover = ev.get("cover_file_id") or ev.get("cover_image_url")
     organizer = query.from_user
-    org_name = f"@{organizer.username}" if organizer.username else organizer.full_name
+    _profile  = _get_org_profile(organizer.id)
+    org_name  = (
+        _profile.get("org_name")
+        or (f"@{organizer.username}" if organizer.username else organizer.full_name)
+    )
+    _org_contact = _profile.get("org_contact") or ""
+    _org_line    = org_name + (f" · {_org_contact}" if _org_contact else "")
     text = (
         f"📬 *Новое событие на апруве!*\n"
-        f"От: {org_name} (ID: {organizer.id})\n\n"
+        f"От: {_org_line} (ID: {organizer.id})\n\n"
         f"{event_card_text(ev_with_id)}"
     )
     try:
@@ -2784,7 +2790,13 @@ async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
         parse_mode="Markdown"
     )
 
-    org_name = f"@{organizer.username}" if organizer.username else organizer.full_name
+    _profile2   = _get_org_profile(organizer.id)
+    org_name    = (
+        _profile2.get("org_name")
+        or (f"@{organizer.username}" if organizer.username else organizer.full_name)
+    )
+    _oc2     = _profile2.get("org_contact") or ""
+    _ol2     = org_name + (f" · {_oc2}" if _oc2 else "")
     data_key = f"{event_id}_{field}_{organizer.id}"
     ctx.bot_data[f"org_edit_{data_key}"] = new_value
 
@@ -2792,7 +2804,7 @@ async def _submit_org_edit(ctx, field: str, new_value, message, organizer):
         MODERATOR_ID,
         f"✏️ *Organizer edit request*\n\n"
         f"Event: *{ev['title']}* (#{event_id})\n"
-        f"By: {org_name} (ID: {organizer.id})\n\n"
+        f"By: {_ol2} (ID: {organizer.id})\n\n"
         f"Field: `{human_field}`\n"
         f"Old: `{human_old}`\n"
         f"New: `{human_new}`",
@@ -2907,7 +2919,11 @@ async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     new_state = not bool(ev.get("registration_closed", False))
     supabase.table("events").update({"registration_closed": new_state}).eq("id", event_id).execute()
 
-    org_name = f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name
+    profile  = _get_org_profile(query.from_user.id)
+    org_name = (
+        profile.get("org_name")
+        or (f"@{query.from_user.username}" if query.from_user.username else query.from_user.full_name)
+    )
 
     # Confirm to organizer (localized)
     msg_key = "org_reg_closed" if new_state else "org_reg_reopened"
@@ -2919,12 +2935,16 @@ async def handle_org_reg_toggle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # Info-only message to moderator
     action_label = "closed" if new_state else "re-opened"
     icon         = "🔒" if new_state else "🔓"
+    org_contact  = profile.get("org_contact") or ""
+    org_line     = f"{org_name}"
+    if org_contact:
+        org_line += f" · {org_contact}"
     try:
         await ctx.bot.send_message(
             MODERATOR_ID,
             f"{icon} *Registration {action_label}*\n\n"
             f"Event: *{ev['title']}* (#{event_id})\n"
-            f"By organizer: {org_name} (ID: {query.from_user.id})\n\n"
+            f"By organizer: {org_line} (ID: {query.from_user.id})\n\n"
             f"Website updated automatically.",
             parse_mode="Markdown"
         )
