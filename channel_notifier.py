@@ -154,8 +154,8 @@ def build_new_event_message(ev: dict) -> str:
         f"{contact_line}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
-        f"[🔔 Подписаться на напоминание]({remind_url})\n"
         f"[🌐 Страница события]({event_url})\n"
+        f"[🔔 Подписаться на напоминание]({remind_url})\n"
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
         f"⭐ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
     )
