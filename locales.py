@@ -13,14 +13,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 STRINGS = {
     # ── Start / onboarding ────────────────────────────────────
     "welcome_pick_lang": {
-        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
-        "ru": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
-        "el": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
-        "uk": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
+        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🌐 Choose your language:",
+        "ru": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🌐 Choose your language:",
+        "el": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🌐 Choose your language:",
+        "uk": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🌐 Choose your language:",
     },
     "welcome": {
         "en": "👇 *What would you like to do?*\n\n🎪 *Want to host an event?*\nTap *Organizer* — add any format: from big conventions to cozy game nights.\n\n🎲 *Looking for something to do?*\nTap *Participant* — discover events nearby and subscribe to your favourite topics and organizers.\n\n💡 You can always switch roles via the /start menu.",
-        "ru": "👇 *Что будем делать?*\n\n🎪 *Хочешь провести событие?*\nЖми *Организатор* — добавляй любые форматы: от крупных конвентов до ламповых встреч.\n\n🎲 *Ищешь, куда сходить?*\nЖми *Участник* — находи события рядом и подписывайся на любимые темы и авторов.\n\n💡 Роль всегда можно сменить через меню /start.",
+        "ru": "👇 *Что будем делать?*\n\n🎪 *Проводишь событие?*\nЖми *Организатор* — добавляй любые форматы: от крупных конвентов до ламповых встреч.\n\n🎲 *Ищешь, куда сходить?*\nЖми *Участник* — находи события рядом и подписывайся на любимые темы и авторов.\n\n💡 Роль всегда можно сменить через меню /start.",
         "el": "👇 *Τι θέλεις να κάνεις;*\n\n🎪 *Θέλεις να διοργανώσεις εκδήλωση;*\nΠάτα *Διοργανωτής* — πρόσθεσε οποιαδήποτε μορφή: από μεγάλα συνέδρια έως φιλικές βραδιές.\n\n🎲 *Ψάχνεις κάτι να κάνεις;*\nΠάτα *Συμμετέχων* — βρες εκδηλώσεις κοντά σου και κάνε εγγραφή στα αγαπημένα σου θέματα και διοργανωτές.\n\n💡 Μπορείς πάντα να αλλάξεις ρόλο μέσω του μενού /start.",
         "uk": "👇 *Що будемо робити?*\n\n🎪 *Хочеш провести подію?*\nТисни *Організатор* — додавай будь-який формат: від великих конвентів до затишних зустрічей.\n\n🎲 *Шукаєш, куди піти?*\nТисни *Учасник* — знаходь події поруч і підписуйся на улюблені теми та авторів.\n\n💡 Роль завжди можна змінити через меню /start.",
     },
@@ -31,16 +31,16 @@ STRINGS = {
         "uk": "Хто ти?",
     },
     "btn_participant": {
-        "en": "🎲 Participant — looking for events",
-        "ru": "🎲 Участник — ищу события",
-        "el": "🎲 Συμμετέχων — ψάχνω εκδηλώσεις",
-        "uk": "🎲 Учасник — шукаю події",
+        "en": "🎲 Participant",
+        "ru": "🎲 Участник",
+        "el": "🎲 Συμμετέχων",
+        "uk": "🎲 Учасник",
     },
     "btn_organizer": {
-        "en": "🎪 Organizer — adding events",
-        "ru": "🎪 Организатор — добавляю события",
-        "el": "🎪 Διοργανωτής — προσθέτω εκδηλώσεις",
-        "uk": "🎪 Організатор — додаю події",
+        "en": "🎪 Organizer",
+        "ru": "🎪 Организатор",
+        "el": "🎪 Διοργανωτής",
+        "uk": "🎪 Організатор",
     },
     "no_org_role": {
         "en": "🎪 To add events you need moderator verification.\n\nSend a request with /request\\_organizer",
@@ -330,29 +330,29 @@ STRINGS = {
     },
     "ask_format": {
         "en": (
-            "🎭 *What type of organizer are you?*\n\n"
+            " *What type of organizer are you?*\n\n"
             "🔒 *Private* — personal events, home games, small gatherings\n"
             "✨ *Community* — clubs, regular meetups, community groups\n"
             "🎉 *Official* — big conventions, branded events, companies\n\n"
             "_This is saved to your profile and won't be asked again._"
         ),
         "ru": (
-            "🎭 *Кто ты как организатор?*\n\n"
-            "🔒 *Private* — личные события, домашние игры, небольшие сборки\n"
+            "*Кто ты как организатор?*\n\n"
+            "🏠 *Private* — домашние игры и небольшие посиделки\n"
             "✨ *Community* — клубы, регулярные встречи, сообщества\n"
-            "🎉 *Official* — большие конвенты, брендированные ивенты, компании\n\n"
+            "🎉 *Official* — большие конвенты и брендированные события\n\n"
             "_Это сохранится в профиле и больше не спросим._"
         ),
         "el": (
-            "🎭 *Τι είδους διοργανωτής είσαι;*\n\n"
-            "🔒 *Private* — προσωπικές εκδηλώσεις, οικιακά παιχνίδια, μικρές συναντήσεις\n"
+            " *Τι είδους διοργανωτής είσαι;*\n\n"
+            "🏠 *Private* — προσωπικές εκδηλώσεις, οικιακά παιχνίδια, μικρές συναντήσεις\n"
             "✨ *Community* — σύλλογοι, τακτικές συναντήσεις, κοινότητες\n"
             "🎉 *Official* — μεγάλα συνέδρια, branded events, εταιρείες\n\n"
             "_Αποθηκεύεται στο προφίλ σου και δεν θα ρωτηθεί ξανά._"
         ),
         "uk": (
             "🎭 *Хто ти як організатор?*\n\n"
-            "🔒 *Private* — особисті події, домашні ігри, маленькі збори\n"
+            "🏠 *Private* — особисті події, домашні ігри, маленькі збори\n"
             "✨ *Community* — клуби, регулярні зустрічі, спільноти\n"
             "🎉 *Official* — великі конвенти, брендовані події, компанії\n\n"
             "_Це збережеться у профілі і більше не питатимемо._"
