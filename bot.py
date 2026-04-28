@@ -1967,7 +1967,7 @@ async def _show_my_events(message, tg_id: int, ctx):
     res = supabase.table("events").select("*")\
           .eq("organizer_tg_id", tg_id)\
           .in_("status", ["published", "pending"])\
-          .order("date_start", desc=True).limit(5).execute()
+          .order("date_start", desc=True).execute()
     if not res.data:
         return await message.reply_text(s(lang, "no_events_yet"), parse_mode="Markdown")
     for ev in res.data:
@@ -1978,15 +1978,6 @@ async def _show_my_events(message, tg_id: int, ctx):
         }.get(status, "?")
 
         reject = f"\n⚠️ {ev['reject_reason']}" if ev.get("reject_reason") else ""
-
-        subs_cnt = supabase.table("subscriptions").select("id", count="exact").eq("event_id", ev["id"]).execute()
-        count = subs_cnt.count or 0
-        if count == 0:
-            subs_line = s(lang, "my_events_subs_none")
-        elif count == 1:
-            subs_line = s(lang, "my_events_subs_one")
-        else:
-            subs_line = s(lang, "my_events_subs_many", count=count)
 
         reg_closed_line = f"\n{s(lang, 'my_events_reg_closed')}" if ev.get("registration_closed") else ""
 
@@ -2008,7 +1999,7 @@ async def _show_my_events(message, tg_id: int, ctx):
         await message.reply_text(
             f"{status_line} · *{ev['title']}*\n"
             f"📅 {ev['date_start'][:10]} · 📍 {ev['location_city']}\n"
-            f"{subs_line}{reg_closed_line}{reject}",
+            f"{reg_closed_line}{reject}",
             reply_markup=keyboard,
             parse_mode="Markdown"
         )

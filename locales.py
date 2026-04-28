@@ -983,10 +983,10 @@ STRINGS = {
         "uk": "📌 Ти підписаний на *{cat}*!\n\nМи повідомимо тебе коли з'являться нові події у цій категорії.",
     },
     "event_status_info": {
-        "en": "{icon} *{title}*\nStatus: {status}\n👥 Subscribers: {count}\n{reject}",
-        "ru": "{icon} *{title}*\nСтатус: {status}\n👥 Подписчиков: {count}\n{reject}",
-        "el": "{icon} *{title}*\nΚατάσταση: {status}\n👥 Συνδρομητές: {count}\n{reject}",
-        "uk": "{icon} *{title}*\nСтатус: {status}\n👥 Підписників: {count}\n{reject}",
+        "en": "{icon} *{title}*\nStatus: {status}\n{reject}",
+        "ru": "{icon} *{title}*\nСтатус: {status}\n{reject}",
+        "el": "{icon} *{title}*\nΚατάσταση: {status}\n{reject}",
+        "uk": "{icon} *{title}*\nСтатус: {status}\n{reject}",
     },
 
     # ── Organizer: edit published event ──────────────────────
