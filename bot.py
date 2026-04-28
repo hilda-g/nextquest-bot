@@ -67,12 +67,14 @@ SITE_URL     = os.environ.get("SITE_URL", "https://nextquest.today")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 CATEGORIES = {
-    "boardgames": "🎲 Настолки",
-    "larp":        "⚔️ LARP",
-    "festival":    "🎪 Фестивали",
-    "rpg":         "🎭 RPG",
-    "cosplay":     "👗 Косплей",
-    "other":       "🃏 Другое",
+    "boardgames": "🎲 Board Games",
+    "rpg":        "🧙 Tabletop RPG",
+    "larp":       "⚔️ LARP",
+    "festival":   "🎪 Festival",
+    "cosplay":    "👽 Cosplay",
+    "lectures":   "🔭 Lectures",
+    "market":     "🛍️ Market",
+    "other":      "🃏 Other",
 }
 
 FORMATS = {
