@@ -390,7 +390,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # Always show language picker first
     ctx.user_data["lang_picker_from_start"] = True
     await update.message.reply_text(
-        "👋 *NextQuest* — geek events in Cyprus / события на Кипре\n\n🌐 Choose your language:",
+        s("en", "welcome_pick_lang"),
         reply_markup=LANG_PICKER_KEYBOARD,
         parse_mode="Markdown"
     )
