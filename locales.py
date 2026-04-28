@@ -13,10 +13,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 STRINGS = {
     # ── Start / onboarding ────────────────────────────────────
     "welcome_pick_lang": {
-        "en": "👋 *NextQuest* — geek events in Cyprus! Discover events. Meet like-minded people. Host your own game night 🎲 \n\n🌐 Choose your language:",
-        "ru": "👋 *NextQuest* — geek events in Cyprus! Discover events. Meet like-minded people. Host your own game night 🎲 \n\n🌐 Choose your language:",
-        "el": "👋 *NextQuest* — geek events in Cyprus! Discover events. Meet like-minded people. Host your own game night 🎲 \n\n🌐 Choose your language:",
-        "uk": "👋 *NextQuest* — geek events in Cyprus! Discover events. Meet like-minded people. Host your own game night 🎲 \n\n🌐 Choose your language:",
+        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
+        "ru": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
+        "el": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
+        "uk": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
     },
     "welcome": {
         "en": "👋 Hi! I'm *NextQuest* — your guide to geek events in Cyprus!\n\nFind events, meet like-minded people, or add your own event 🎲 \n\nFirst, choose your language:",
