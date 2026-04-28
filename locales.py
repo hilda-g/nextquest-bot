@@ -13,13 +13,13 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 STRINGS = {
     # ── Start / onboarding ────────────────────────────────────
     "welcome_pick_lang": {
-        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
+        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events! \n\n🌐 Choose your language:",
         "ru": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
         "el": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
         "uk": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
     },
     "welcome": {
-        "en": "👋 Hi! I'm *NextQuest* — your guide to geek events in Cyprus!\n\nFind events, meet like-minded people, or add your own event 🎲 \n\nFirst, choose your language:",
+        "en": "👋 Welcome to *NextQuest* — Cyprus Geek Events!\nDiscover Events. Meet like-minded people. Host your own game nights!\n\n🎲 [Community Channel](https://t.me/nextquestcy)\n🎲 [Event Calendar](https://nextquest.today/)\n\n🌐 Choose your language:",
         "ru": "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nСначала выбери язык:",
         "el": "👋 Γεια! Είμαι το *NextQuest* — ο οδηγός geek εκδηλώσεων στην Κύπρο.\n\nΕπίλεξε γλώσσα:",
         "uk": "👋 Привіт! Я *NextQuest* — бот подій гік-спільноти Кіпру.\n\nСпочатку обери мову:",
@@ -38,7 +38,7 @@ STRINGS = {
     },
     "btn_organizer": {
         "en": "🎪 Organizer — adding events",
-        "ru": "🎪 Организатор — добавляю события",
+        "ru": "🎪 Организатор",
         "el": "🎪 Διοργανωτής — προσθέτω εκδηλώσεις",
         "uk": "🎪 Організатор — додаю події",
     },
