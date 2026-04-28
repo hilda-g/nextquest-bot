@@ -13,7 +13,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 STRINGS = {
     # ── Start / onboarding ────────────────────────────────────
     "welcome": {
-        "en": "👋 Hi! I'm *NextQuest* — your guide to geek events in Cyprus.\n\nFirst, choose your language:",
+        "en": "👋 Welcome to *NextQuest* — your guide to geek events in Cyprus!\n\nFind events, meet like-minded people, or add your own event 🎲\n\n📅 Browse events: https://nextquest.today/\n📢 Get updates: https://t.me/nextquestcy\n🤖 Use this bot to add events or subscribe for notifications\n\nFirst, choose your language 👇",
         "ru": "👋 Привет! Я *NextQuest* — бот событий гик-сообщества Кипра.\n\nСначала выбери язык:",
         "el": "👋 Γεια! Είμαι το *NextQuest* — ο οδηγός geek εκδηλώσεων στην Κύπρο.\n\nΕπίλεξε γλώσσα:",
         "uk": "👋 Привіт! Я *NextQuest* — бот подій гік-спільноти Кіпру.\n\nСпочатку обери мову:",
