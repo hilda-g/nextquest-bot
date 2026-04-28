@@ -380,18 +380,32 @@ async def send_event_card(bot_or_message, chat_id, ev: dict, keyboard=None, is_r
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    get_or_create_user(user.id, user.username)
+    db_user = get_or_create_user(user.id, user.username)
 
     # Deep-link: /start event_123 — skip lang picker, go straight to event
     if ctx.args and ctx.args[0].startswith("event_"):
         event_id = ctx.args[0].split("_")[1]
         return await _show_event_deeplink(update, ctx, event_id)
 
-    # Always show language picker first
-    ctx.user_data["lang_picker_from_start"] = True
+    # First-time user: no language saved yet → show language picker
+    saved_lang = db_user.get("language") if db_user else None
+    if not saved_lang or saved_lang not in ("en", "ru", "el", "uk"):
+        ctx.user_data["lang_picker_from_start"] = True
+        await update.message.reply_text(
+            s("en", "welcome_pick_lang"),
+            reply_markup=LANG_PICKER_KEYBOARD,
+            parse_mode="Markdown"
+        )
+        return
+
+    # Returning user: skip language picker, go straight to role/welcome screen
+    lang = saved_lang
     await update.message.reply_text(
-        s("en", "welcome_pick_lang"),
-        reply_markup=LANG_PICKER_KEYBOARD,
+        s(lang, "welcome"),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_participant"), callback_data="onboard:participant"),
+            InlineKeyboardButton(s(lang, "btn_organizer"),  callback_data="onboard:organizer"),
+        ]]),
         parse_mode="Markdown"
     )
 
