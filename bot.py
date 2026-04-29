@@ -1967,7 +1967,7 @@ async def _show_my_events(message, tg_id: int, ctx):
     res = supabase.table("events").select("*")\
           .eq("organizer_tg_id", tg_id)\
           .in_("status", ["published", "pending"])\
-          .order("date_start", desc=True).limit(5).execute()
+          .order("date_start", desc=True).execute()
     if not res.data:
         return await message.reply_text(s(lang, "no_events_yet"), parse_mode="Markdown")
     for ev in res.data:
