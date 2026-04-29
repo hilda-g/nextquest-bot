@@ -3174,7 +3174,8 @@ def build_application() -> Application:
                 CallbackQueryHandler(ev_edit_field,         pattern="^evf:"),
             ],
             EV_EDIT_VALUE: [
-                CallbackQueryHandler(ev_edit_value_callback, pattern="^evv:"),
+                CallbackQueryHandler(ev_submit_callback,      pattern="^ev_(submit|cancel|edit)$"),
+                CallbackQueryHandler(ev_edit_value_callback,  pattern="^evv:"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ev_edit_value_text),
                 MessageHandler(filters.PHOTO,                   ev_edit_value_text),
             ],
