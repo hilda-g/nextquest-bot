@@ -98,6 +98,7 @@ REJECT_REASONS = [
     EV_CATEGORY,
     EV_YEAR, EV_MONTH, EV_DAY, EV_HOUR, EV_MINUTE,
     EV_END_CHOICE, EV_END_YEAR, EV_END_MONTH, EV_END_DAY, EV_END_HOUR, EV_END_MINUTE,
+    EV_END_TIME_CHOICE, EV_END_TIME_HOUR, EV_END_TIME_MINUTE,
     EV_CITY, EV_ADDRESS, EV_LIMIT,
     EV_FORMAT,
     EV_TITLE, EV_DESC, EV_PHOTO,
@@ -113,7 +114,7 @@ REJECT_REASONS = [
     ORG_EDIT_FIELD, ORG_EDIT_VALUE,
     # Organizer profile setup (asked once before first event)
     EV_ORG_TYPE, EV_ORG_NAME, EV_ORG_LINK, EV_ORG_CONTACT,
-) = range(32)
+) = range(35)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -1474,10 +1475,51 @@ async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def ev_end_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
-    if q.data == "end:no":
+    if q.data == "end:yes":
+        await q.message.reply_text(s(lang, "ask_end_year"), reply_markup=make_year_keyboard("ey"))
+        return EV_END_YEAR
+    # end:no → ask for same-day end time
+    await q.message.reply_text(
+        s(lang, "ask_end_time_choice"),
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(s(lang, "btn_yes"),  callback_data="etc:yes"),
+            InlineKeyboardButton(s(lang, "btn_skip"), callback_data="etc:skip"),
+        ]]),
+        parse_mode="Markdown"
+    )
+    return EV_END_TIME_CHOICE
+
+async def ev_end_time_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    if q.data == "etc:skip":
         return await _ask_city(q.message, ctx, lang)
-    await q.message.reply_text(s(lang, "ask_end_year"), reply_markup=make_year_keyboard("ey"))
-    return EV_END_YEAR
+    await q.message.reply_text(s(lang, "ask_end_time_hour"), reply_markup=make_time_period_keyboard("etpc", lang))
+    return EV_END_TIME_HOUR
+
+async def ev_end_time_hour(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    lang = get_user_lang(update.effective_user.id)
+    q = update.callback_query; await q.answer()
+    period = q.data.split(":")[1]
+    ctx.user_data["_etcperiod"] = period
+    await q.message.reply_text(s(lang, "ask_end_time_minute"), reply_markup=make_time_slots_keyboard("etmc", period, back_prefix="etpcback"))
+    return EV_END_TIME_MINUTE
+
+async def ev_end_time_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    lang = get_user_lang(q.from_user.id)
+    parts = q.data.split(":")
+    if parts[0] == "etpcback":
+        await q.message.reply_text(s(lang, "ask_end_time_hour"), reply_markup=make_time_period_keyboard("etpc", lang))
+        return EV_END_TIME_HOUR
+    _, h, m = parts   # etmc:H:M
+    h, m = int(h), int(m)
+    # Use same date as date_start, only replace time
+    date_start = ctx.user_data["new_event"]["date_start"]
+    start_dt = datetime.fromisoformat(date_start)
+    end_dt = start_dt.replace(hour=h, minute=m)
+    ctx.user_data["new_event"]["date_end"] = end_dt.isoformat()
+    return await _ask_city(q.message, ctx, lang)
 
 async def ev_end_year(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
@@ -3149,6 +3191,9 @@ def build_application() -> Application:
             EV_HOUR:       [CallbackQueryHandler(ev_hour,          pattern="^stp:")],
             EV_MINUTE:     [CallbackQueryHandler(ev_minute,        pattern="^(stm|stpback):"),],
             EV_END_CHOICE: [CallbackQueryHandler(ev_end_choice,    pattern="^end:")],
+            EV_END_TIME_CHOICE: [CallbackQueryHandler(ev_end_time_choice, pattern="^etc:")],
+            EV_END_TIME_HOUR:   [CallbackQueryHandler(ev_end_time_hour,   pattern="^etpc:")],
+            EV_END_TIME_MINUTE: [CallbackQueryHandler(ev_end_time_minute, pattern="^(etmc|etpcback):")],
             EV_END_YEAR:   [CallbackQueryHandler(ev_end_year,      pattern="^ey:")],
             EV_END_MONTH:  [CallbackQueryHandler(ev_end_month,     pattern="^em:")],
             EV_END_DAY:    [CallbackQueryHandler(ev_end_day,       pattern="^ed:")],
