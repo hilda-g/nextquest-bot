@@ -231,18 +231,18 @@ def build_new_event_message(ev: dict) -> str:
         organizer_line = ""
 
     if ev.get("external_url"):
-        contact_line = f"\n📋 Contact: [Register]({ev['external_url']})"
+        registration_line = f"\n📋 [Registration]({ev['external_url']})"
     elif ev.get("organizer_contacts"):
-        contact_line = f"\n📋 Contact: {ev['organizer_contacts']}"
+        registration_line = f"\n📋 Contact: {ev['organizer_contacts']}"
     else:
-        contact_line = ""
+        registration_line = ""
 
     # Language line
     langs = ev.get("event_languages") or []
     lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
 
-    # Participants limit line
-    limit_line = f"\n👥 {ev['max_participants']} spots" if ev.get("max_participants") else ""
+    # Participants limit line — shown next to registration
+    limit_line = f" · 👥 {ev['max_participants']} max" if ev.get("max_participants") else ""
 
     description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
     gcal_url     = build_google_calendar_url(ev)
@@ -255,10 +255,9 @@ def build_new_event_message(ev: dict) -> str:
         f"{cat} · {fmt}\n"
         f"📅 {date_str}\n"
         f"{maps_link}"
-        f"{limit_line}"
         f"{lang_line}"
         f"{organizer_line}"
-        f"{contact_line}\n\n"
+        f"{registration_line}{limit_line}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
         f"[🌐 Страница события]({event_url})\n"
