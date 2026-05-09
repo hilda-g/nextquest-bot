@@ -140,7 +140,6 @@ def build_new_event_message(ev: dict) -> str:
     end_str   = f" → {format_date_human(ev['date_end'])}" if ev.get("date_end") else ""
     cat       = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
     fmt       = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    limit     = f"{ev['max_participants']} spots" if ev.get("max_participants") else "no limit"
     location  = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
     maps_link = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
@@ -161,6 +160,14 @@ def build_new_event_message(ev: dict) -> str:
     else:
         contact_line = ""
 
+    # Language line
+    LANG_FLAGS = {"EL": "🇬🇷 EL", "RU": "🇷🇺 RU", "EN": "🇬🇧 EN", "UKR": "🇺🇦 UKR"}
+    langs = ev.get("event_languages") or []
+    lang_line = "\n🗣 " + " · ".join(LANG_FLAGS.get(l, l) for l in langs) if langs else ""
+
+    # Participants limit line
+    limit_line = f"\n👥 {ev['max_participants']} spots" if ev.get("max_participants") else ""
+
     description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
     gcal_url     = build_google_calendar_url(ev)
     event_url    = f"{SITE_URL}/events/{ev['id']}"
@@ -171,8 +178,9 @@ def build_new_event_message(ev: dict) -> str:
         f"*{ev['title'].upper()}*\n"
         f"{cat} · {fmt}\n"
         f"📅 {date_str}{end_str}\n"
-        f"{maps_link}\n"
-        f"👥 {limit}"
+        f"{maps_link}"
+        f"{limit_line}"
+        f"{lang_line}"
         f"{organizer_line}"
         f"{contact_line}\n\n"
         f"{description}\n\n"
