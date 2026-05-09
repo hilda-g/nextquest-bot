@@ -40,6 +40,7 @@ CHANNEL_ID     = os.environ["CHANNEL_ID"]          # e.g. -1001234567890
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
 BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
+SUPABASE_URL   = os.environ.get("SUPABASE_URL", "")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
@@ -125,10 +126,17 @@ def _compress_for_telegram(raw: bytes) -> tuple[io.BytesIO, str]:
 
 async def fetch_photo_for_telegram(url: str):
     """
-    Download image and return as InputFile ready for Telegram.
-    Compresses/resizes with Pillow when available to avoid image_process_failed.
-    Falls back to raw URL on any failure.
+    For Supabase storage URLs: download + compress with Pillow, return InputFile.
+    For external URLs: return the raw URL string — Telegram fetches it directly.
+    Returns None only if download of a Supabase URL fails.
     """
+    is_supabase = SUPABASE_URL and url.startswith(SUPABASE_URL)
+
+    if not is_supabase:
+        logger.info(f"External cover URL — passing directly to Telegram: {url}")
+        return url
+
+    # Supabase storage: download and compress
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(url, follow_redirects=True)
@@ -136,7 +144,7 @@ async def fetch_photo_for_telegram(url: str):
 
         content_type = resp.headers.get("content-type", "")
         if not content_type.startswith("image/"):
-            logger.warning(f"Cover URL did not return an image (content-type: {content_type}), skipping photo")
+            logger.warning(f"Supabase URL did not return an image (content-type: {content_type}), skipping photo")
             return None
 
         raw = resp.content
@@ -153,7 +161,7 @@ async def fetch_photo_for_telegram(url: str):
             return InputFile(io.BytesIO(raw), filename="cover.jpg")
 
     except Exception as e:
-        logger.warning(f"Could not download cover image, skipping photo: {e}")
+        logger.warning(f"Could not download Supabase cover image, skipping photo: {e}")
         return None
 
 
