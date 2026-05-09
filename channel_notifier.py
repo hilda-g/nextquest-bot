@@ -6,7 +6,7 @@ Supabase calls this webhook whenever an event row is INSERT-ed or UPDATE-d
 with status = 'published'.
 
 Setup:
-    pip install fastapi uvicorn python-telegram-bot python-dotenv
+    pip install fastapi uvicorn python-telegram-bot python-dotenv httpx Pillow
 
 Run:
     uvicorn channel_notifier:app --host 0.0.0.0 --port 8000
@@ -86,19 +86,68 @@ app.add_middleware(
 
 # ── Photo helper ─────────────────────────────────────────────────────────────
 
+# Telegram limits: max 10 MB file, max 10 000 px on any side, max 20 MP total
+TG_MAX_SIDE   = 2560   # safe target (well under 10 000)
+TG_MAX_BYTES  = 9 * 1024 * 1024  # 9 MB to leave headroom
+
+def _compress_for_telegram(raw: bytes) -> tuple[io.BytesIO, str]:
+    """
+    Resize + JPEG-compress image bytes so they fit Telegram's photo limits.
+    Returns (BytesIO, filename).  Raises ImportError if Pillow not installed.
+    """
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(raw))
+
+    # Convert palette / RGBA → RGB (JPEG doesn't support transparency)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    # Resize if either dimension exceeds safe limit
+    w, h = img.size
+    if w > TG_MAX_SIDE or h > TG_MAX_SIDE:
+        img.thumbnail((TG_MAX_SIDE, TG_MAX_SIDE), Image.LANCZOS)
+        logger.info(f"Resized cover from {w}x{h} → {img.size}")
+
+    # Compress to JPEG, reduce quality until under size limit
+    quality = 90
+    buf = io.BytesIO()
+    while quality >= 50:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        if buf.tell() <= TG_MAX_BYTES:
+            break
+        quality -= 10
+
+    buf.seek(0)
+    return buf, "cover.jpg"
+
+
 async def fetch_photo_for_telegram(url: str):
     """
-    Download image bytes and return as InputFile so Telegram always receives
-    the actual image data instead of a URL it might reject (e.g. Supabase storage).
-    Falls back to the raw URL string on download failure.
+    Download image and return as InputFile ready for Telegram.
+    Compresses/resizes with Pillow when available to avoid image_process_failed.
+    Falls back to raw URL on any failure.
     """
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(url, follow_redirects=True)
             resp.raise_for_status()
+            raw = resp.content
+
+        try:
+            buf, filename = _compress_for_telegram(raw)
+            return InputFile(buf, filename=filename)
+        except ImportError:
+            # Pillow not installed — send raw bytes, hope Telegram accepts them
+            logger.warning("Pillow not installed; sending raw image bytes")
             content_type = resp.headers.get("content-type", "image/jpeg")
             ext = "png" if "png" in content_type else "webp" if "webp" in content_type else "jpg"
-            return InputFile(io.BytesIO(resp.content), filename=f"cover.{ext}")
+            return InputFile(io.BytesIO(raw), filename=f"cover.{ext}")
+        except Exception as e:
+            logger.warning(f"Image compression failed, sending raw bytes: {e}")
+            return InputFile(io.BytesIO(raw), filename="cover.jpg")
+
     except Exception as e:
         logger.warning(f"Could not download cover image, falling back to URL: {e}")
         return url
