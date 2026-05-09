@@ -222,26 +222,21 @@ def build_new_event_message(ev: dict) -> str:
 
     organizer_name = ev.get("organizer_username") or ""
     org_link = ev.get("organizer_link") or ""
+    org_contacts = ev.get("organizer_contacts") or ""
 
-    if organizer_name and org_link:
-        organizer_line = f"\n🎪 Organizer: [{organizer_name}]({org_link})"
-    elif organizer_name:
-        organizer_line = f"\n🎪 Organizer: {organizer_name}"
+    if organizer_name:
+        name_part = f"[{organizer_name}]({org_link})" if org_link else organizer_name
+        contact_part = f" · [Contact]({org_contacts})" if org_contacts.startswith("http") else (f" · {org_contacts}" if org_contacts else "")
+        organizer_line = f"\n🎪 Organizer: {name_part}{contact_part}"
     else:
         organizer_line = ""
-
-    if ev.get("external_url"):
-        registration_line = f"\n📋 [Registration]({ev['external_url']})"
-    elif ev.get("organizer_contacts"):
-        registration_line = f"\n📋 Contact: {ev['organizer_contacts']}"
-    else:
-        registration_line = ""
 
     # Language line
     langs = ev.get("event_languages") or []
     lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
 
-    # Participants limit line — shown next to registration
+    # Registration and limit
+    registration_line = f"\n📋 [Registration]({ev['external_url']})" if ev.get("external_url") else ""
     limit_line = f" · 👥 {ev['max_participants']} max" if ev.get("max_participants") else ""
 
     description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
