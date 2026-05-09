@@ -135,9 +135,25 @@ def format_date_human(iso: str) -> str:
     month   = MONTHS_EN[d.month - 1]
     return f"{weekday}, {d.day} {month} · {d.strftime('%H:%M')}"
 
+def format_date_range(start_iso: str, end_iso: str | None) -> str:
+    """
+    Build the date line:
+    - No end:        Wednesday, 21 April · 09:00
+    - Same day end:  Wednesday, 21 April · 09:00 - 22:00
+    - Diff day end:  Wednesday, 21 April · 09:00 → Thursday, 22 April · 22:00
+    """
+    from datetime import datetime as dt
+    s = dt.fromisoformat(start_iso[:16])
+    base = f"{WEEKDAYS_EN[s.weekday()]}, {s.day} {MONTHS_EN[s.month - 1]} · {s.strftime('%H:%M')}"
+    if not end_iso:
+        return base
+    e = dt.fromisoformat(end_iso[:16])
+    if s.date() == e.date():
+        return f"{base} - {e.strftime('%H:%M')}"
+    return f"{base} → {WEEKDAYS_EN[e.weekday()]}, {e.day} {MONTHS_EN[e.month - 1]} · {e.strftime('%H:%M')}"
+
 def build_new_event_message(ev: dict) -> str:
-    date_str  = format_date_human(ev["date_start"])
-    end_str   = f" → {format_date_human(ev['date_end'])}" if ev.get("date_end") else ""
+    date_str  = format_date_range(ev["date_start"], ev.get("date_end"))
     cat       = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
     fmt       = FORMATS.get(ev.get("format", "official"), "🎉 Official")
     location  = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
@@ -176,7 +192,7 @@ def build_new_event_message(ev: dict) -> str:
     return (
         f"*{ev['title'].upper()}*\n"
         f"{cat} · {fmt}\n"
-        f"📅 {date_str}{end_str}\n"
+        f"📅 {date_str}\n"
         f"{maps_link}"
         f"{limit_line}"
         f"{lang_line}"
