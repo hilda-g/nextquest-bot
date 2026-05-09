@@ -239,7 +239,7 @@ def build_new_event_message(ev: dict) -> str:
 
     # Language line
     langs = ev.get("event_languages") or []
-    lang_line = "\n🗣 Lang: " + " · ".join(langs) if langs else ""
+    lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
 
     # Participants limit line
     limit_line = f"\n👥 {ev['max_participants']} spots" if ev.get("max_participants") else ""
