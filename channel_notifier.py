@@ -133,15 +133,19 @@ async def fetch_photo_for_telegram(url: str):
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(url, follow_redirects=True)
             resp.raise_for_status()
-            raw = resp.content
+
+        content_type = resp.headers.get("content-type", "")
+        if not content_type.startswith("image/"):
+            logger.warning(f"Cover URL did not return an image (content-type: {content_type}), skipping photo")
+            return None
+
+        raw = resp.content
 
         try:
             buf, filename = _compress_for_telegram(raw)
             return InputFile(buf, filename=filename)
         except ImportError:
-            # Pillow not installed — send raw bytes, hope Telegram accepts them
             logger.warning("Pillow not installed; sending raw image bytes")
-            content_type = resp.headers.get("content-type", "image/jpeg")
             ext = "png" if "png" in content_type else "webp" if "webp" in content_type else "jpg"
             return InputFile(io.BytesIO(raw), filename=f"cover.{ext}")
         except Exception as e:
@@ -149,8 +153,8 @@ async def fetch_photo_for_telegram(url: str):
             return InputFile(io.BytesIO(raw), filename="cover.jpg")
 
     except Exception as e:
-        logger.warning(f"Could not download cover image, falling back to URL: {e}")
-        return url
+        logger.warning(f"Could not download cover image, skipping photo: {e}")
+        return None
 
 
 # ── Message builders ──────────────────────────────────────────
@@ -298,11 +302,12 @@ async def handle_event_webhook(
     try:
         text  = build_new_event_message(record)
         cover = record.get("cover_image_url")
+        photo = await fetch_photo_for_telegram(cover) if cover else None
 
-        if cover:
+        if photo:
             await bot.send_photo(
                 chat_id=CHANNEL_ID,
-                photo=await fetch_photo_for_telegram(cover),
+                photo=photo,
                 caption=text,
                 parse_mode="Markdown",
             )
@@ -344,10 +349,12 @@ async def post_manual(
     cover = ev.get("cover_image_url")
 
     try:
-        if cover:
+        photo = await fetch_photo_for_telegram(cover) if cover else None
+
+        if photo:
             await bot.send_photo(
                 chat_id=CHANNEL_ID,
-                photo=await fetch_photo_for_telegram(cover),
+                photo=photo,
                 caption=text,
                 parse_mode="Markdown",
             )
