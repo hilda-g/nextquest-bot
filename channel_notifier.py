@@ -17,6 +17,7 @@ Run:
 """
 
 import os
+import io
 import logging
 import hashlib
 import hmac
@@ -25,7 +26,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import httpx
 import telegram
+from telegram import InputFile
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -79,6 +82,26 @@ app.add_middleware(
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# ── Photo helper ─────────────────────────────────────────────────────────────
+
+async def fetch_photo_for_telegram(url: str):
+    """
+    Download image bytes and return as InputFile so Telegram always receives
+    the actual image data instead of a URL it might reject (e.g. Supabase storage).
+    Falls back to the raw URL string on download failure.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url, follow_redirects=True)
+            resp.raise_for_status()
+            content_type = resp.headers.get("content-type", "image/jpeg")
+            ext = "png" if "png" in content_type else "webp" if "webp" in content_type else "jpg"
+            return InputFile(io.BytesIO(resp.content), filename=f"cover.{ext}")
+    except Exception as e:
+        logger.warning(f"Could not download cover image, falling back to URL: {e}")
+        return url
 
 
 # ── Message builders ──────────────────────────────────────────
@@ -207,7 +230,7 @@ async def handle_event_webhook(
         if cover:
             await bot.send_photo(
                 chat_id=CHANNEL_ID,
-                photo=cover,
+                photo=await fetch_photo_for_telegram(cover),
                 caption=text,
                 parse_mode="Markdown",
             )
@@ -252,7 +275,7 @@ async def post_manual(
         if cover:
             await bot.send_photo(
                 chat_id=CHANNEL_ID,
-                photo=cover,
+                photo=await fetch_photo_for_telegram(cover),
                 caption=text,
                 parse_mode="Markdown",
             )
