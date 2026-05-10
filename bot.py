@@ -1254,22 +1254,9 @@ async def wizard_start_from_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
     ctx.user_data["new_event"] = {}
     ctx.user_data.pop("draft_id", None)
 
-    # Check for existing draft
+    # Delete any existing drafts for this user
     user_id = query.from_user.id
-    draft = supabase.table("events").select("*")\
-            .eq("organizer_tg_id", user_id).eq("status", "draft")\
-            .order("created_at", desc=True).limit(1).execute()
-    if draft.data:
-        ev = draft.data[0]
-        await query.message.reply_text(
-            s(lang, "draft_found", title=ev.get('title', '(untitled)')),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(s(lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
-                InlineKeyboardButton(s(lang, "btn_new_draft"),      callback_data="draft_new"),
-            ]]),
-            parse_mode="Markdown"
-        )
-        return EV_CATEGORY
+    supabase.table("events").delete().eq("organizer_tg_id", user_id).eq("status", "draft").execute()
 
     return await _ask_category(query.message, lang)
 
@@ -1288,35 +1275,11 @@ async def cmd_new_event(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"] = {}
     ctx.user_data.pop("draft_id", None)
 
-    # Restore draft if exists
-    draft = supabase.table("events").select("*")\
-            .eq("organizer_tg_id", user.id).eq("status", "draft")\
-            .order("created_at", desc=True).limit(1).execute()
-    if draft.data:
-        ev = draft.data[0]
-        await update.message.reply_text(
-            s(lang, "draft_found", title=ev.get('title', '(untitled)')),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(s(lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
-                InlineKeyboardButton(s(lang, "btn_new_draft"),      callback_data="draft_new"),
-            ]]),
-            parse_mode="Markdown"
-        )
-        return EV_CATEGORY
+    # Delete any existing drafts for this user
+    supabase.table("events").delete().eq("organizer_tg_id", user.id).eq("status", "draft").execute()
 
     return await _ask_category(update.message, lang)
 
-async def handle_draft_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if query.data == "draft_new":
-        ctx.user_data["new_event"] = {}
-        return await _ask_category(query.message)
-    draft_id = query.data.split(":")[1]
-    ev = supabase.table("events").select("*").eq("id", draft_id).single().execute().data
-    ctx.user_data["new_event"] = ev
-    ctx.user_data["draft_id"]  = draft_id
-    return await _ask_category(query.message)
 
 async def _ask_category(message, lang: str = "ru") -> int:
     buttons = [[InlineKeyboardButton(cat_label(lang, cat_id), callback_data=f"cat:{cat_id}")]
@@ -1336,7 +1299,6 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
     ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
     ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
-    await _save_draft(ctx)
     lang = get_user_lang(q.from_user.id)
 
     # Check if organizer profile already set — skip format/org questions if so
@@ -1499,7 +1461,6 @@ async def ev_minute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d  = ctx.user_data
     dt = datetime(d["_sy"], d["_sm"], d["_sd"], h, m)
     ctx.user_data["new_event"]["date_start"] = dt.isoformat()
-    await _save_draft(ctx)
     await q.message.reply_text(
         s(lang, "start_confirmed", dt=format_date_loc(dt.isoformat(), lang)),
         reply_markup=InlineKeyboardMarkup([[
@@ -1648,7 +1609,6 @@ async def ev_get_limit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     val = int(val_str)
     if val > 0:
         ctx.user_data["new_event"]["max_participants"] = val
-    await _save_draft(ctx)
     await q.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
     return EV_TITLE
 
@@ -1660,7 +1620,6 @@ async def ev_get_limit_custom(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(s(lang, "invalid_number"))
         return EV_LIMIT_CUSTOM
     ctx.user_data["new_event"]["max_participants"] = int(text)
-    await _save_draft(ctx)
     await update.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
     return EV_TITLE
 
@@ -1669,7 +1628,6 @@ async def ev_get_format(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     q = update.callback_query; await q.answer()
     ctx.user_data["new_event"]["format"] = q.data.split(":")[1]
-    await _save_draft(ctx)
     await q.message.reply_text(s(lang, "step_title"), parse_mode="Markdown")
     return EV_TITLE
 
@@ -1736,7 +1694,6 @@ async def ev_reg_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             ctx.user_data["new_event"].pop("external_url", None)
             ev = ctx.user_data["new_event"]
             ev["organizer_tg_id"] = query.from_user.id
-            await _save_draft(ctx)
             return await _show_preview(query.message, ev)
         else:
             ctx.user_data["_reg_mode"] = "contacts"
@@ -1756,7 +1713,6 @@ async def ev_get_url(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     ev = ctx.user_data["new_event"]
     ev["organizer_tg_id"] = update.effective_user.id
-    await _save_draft(ctx)
     return await _show_preview(update.message, ev)
 
 async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1765,8 +1721,6 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "ev_cancel":
-        if ctx.user_data.get("draft_id"):
-            supabase.table("events").delete().eq("id", ctx.user_data["draft_id"]).execute()
         ctx.user_data.pop("new_event", None)
         ctx.user_data.pop("draft_id", None)
         await query.message.reply_text(s(lang, "event_cancelled_creation"))
@@ -1807,12 +1761,8 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     draft_id = ctx.user_data.pop("draft_id", None)
     db_ev = {**_db_fields(ev), "status": "pending"}
     try:
-        if draft_id:
-            supabase.table("events").update(db_ev).eq("id", draft_id).execute()
-            event_id = draft_id
-        else:
-            res = supabase.table("events").insert(db_ev).execute()
-            event_id = res.data[0]["id"]
+        res = supabase.table("events").insert(db_ev).execute()
+        event_id = res.data[0]["id"]
     except Exception as e:
         logger.error(f"Failed to save event to Supabase: {e}")
         await query.message.reply_text(s(lang, "save_error"))
@@ -1945,7 +1895,6 @@ async def ev_edit_value_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
 
     ctx.user_data.pop("ev_editing_field", None)
     ev = ctx.user_data["new_event"]
-    await _save_draft(ctx)
     return await _show_preview(query.message, ev)
 
 
@@ -1961,7 +1910,6 @@ async def ev_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.user_data["new_event"]["cover_image_url"] = file_id
         ctx.user_data["new_event"]["cover_file_id"]   = file_id
         ctx.user_data.pop("ev_editing_field", None)
-        await _save_draft(ctx)
         return await _show_preview(update.message, ctx.user_data["new_event"])
 
     raw = update.message.text.strip() if update.message.text else None
@@ -1985,7 +1933,6 @@ async def ev_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.user_data["new_event"][field] = raw
 
     ctx.user_data.pop("ev_editing_field", None)
-    await _save_draft(ctx)
     return await _show_preview(update.message, ctx.user_data["new_event"])
 
 
@@ -2024,22 +1971,6 @@ def _db_fields(ev: dict) -> dict:
     """Return only the keys that belong to the Supabase events table."""
     return {k: v for k, v in ev.items() if k in _EVENT_DB_COLUMNS}
 
-
-async def _save_draft(ctx):
-    """Сохраняет или обновляет черновик в БД."""
-    ev = ctx.user_data.get("new_event", {})
-    if not ev.get("organizer_tg_id"):
-        return
-    draft_id = ctx.user_data.get("draft_id")
-    ev_data  = {**_db_fields(ev), "status": "draft"}
-    if draft_id:
-        supabase.table("events").update(ev_data).eq("id", draft_id).execute()
-    else:
-        try:
-            res = supabase.table("events").insert(ev_data).execute()
-            ctx.user_data["draft_id"] = res.data[0]["id"]
-        except Exception as e:
-            logger.warning(f"_save_draft insert failed: {e}")
 
 
 # ─── Мои события (UC-05, UC-06) ─────────────────────────────
@@ -2420,29 +2351,6 @@ async def handle_cant_come(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         supabase.table("subscriptions").delete().eq("id", existing.data[0]["id"]).execute()
     await query.message.reply_text(s(lang, "cant_come"))
 
-
-# ─── Черновик: напоминание через 24ч ─────────────────────────
-
-async def job_draft_reminders(ctx: ContextTypes.DEFAULT_TYPE):
-    """Напоминает организаторам о незавершённых черновиках."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    drafts = supabase.table("events").select("*")\
-             .eq("status", "draft")\
-             .lte("created_at", cutoff).execute()
-    for ev in drafts.data:
-        try:
-            ev_lang = get_user_lang(ev["organizer_tg_id"])
-            await ctx.bot.send_message(
-                ev["organizer_tg_id"],
-                s(ev_lang, "draft_reminder",
-                  cat=CATEGORIES.get(ev.get('category', ''), '—'),
-                  title=ev.get('title', '(untitled)')),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(s(ev_lang, "btn_continue_draft"), callback_data=f"draft_continue:{ev['id']}"),
-                ]])
-            )
-        except Exception:
-            pass
 
 
 
@@ -3217,7 +3125,6 @@ def build_application() -> Application:
         entry_points=[
             CommandHandler("new_event", cmd_new_event),
             CallbackQueryHandler(wizard_start_from_menu, pattern="^menu:new_event$"),
-            CallbackQueryHandler(handle_draft_choice,    pattern="^draft_(continue|new)"),
         ],
         states={
             EV_CATEGORY:   [CallbackQueryHandler(ev_get_category, pattern="^cat:")],
@@ -3392,7 +3299,6 @@ def build_application() -> Application:
     job_queue: JobQueue = app.job_queue
     job_queue.run_repeating(job_send_reminders,                    interval=3600, first=60)
     job_queue.run_repeating(job_organizer_reg_reminder,            interval=3600, first=90)
-    job_queue.run_repeating(job_draft_reminders,                   interval=3600, first=120)
     job_queue.run_repeating(job_cleanup_past_event_subscriptions,  interval=86400, first=150)
 
     # ── Bot menu commands (shown in Telegram's "/" menu) ──────
