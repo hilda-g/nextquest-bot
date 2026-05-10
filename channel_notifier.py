@@ -242,7 +242,7 @@ def build_new_event_message(ev: dict) -> str:
     lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
 
     # Registration and limit
-    reg_url = ev.get("external_url") or (org_contacts if org_contacts.startswith("http") else "")
+    reg_url = ev.get("external_url") or (org_contacts if (org_contacts.startswith("http") and ev.get("max_participants")) else "")
     if reg_url:
         registration_line = f"\n📋 [Registration]({reg_url})"
         limit_line = f" · 👥 {ev['max_participants']} max" if ev.get("max_participants") else ""

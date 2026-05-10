@@ -260,7 +260,7 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
     else:
         organizer_line = ""
 
-    reg_url = ev.get("external_url") or (org_contacts if org_contacts.startswith("http") else "")
+    reg_url = ev.get("external_url") or (org_contacts if (org_contacts.startswith("http") and ev.get("max_participants")) else "")
     if reg_url:
         registration_line = f"\n📋 [{s(lang, 'btn_register')}]({reg_url})"
         limit_line = f" · 👥 {ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else ""
