@@ -227,71 +227,37 @@ def maps_url(city: str, address: str) -> str:
     return f"https://maps.google.com/?q={q}"
 
 def event_card_text(ev: dict, lang: str = "ru") -> str:
-    # Date line
-    date_str = format_date_loc(ev["date_start"], lang)
-    date_end = ev.get("date_end")
-    if date_end:
-        start_d = ev["date_start"][:10]
-        end_d   = date_end[:10]
-        if start_d == end_d:
-            end_time = date_end[11:16]
-            date_line = f"{date_str} - {end_time}"
-        else:
-            date_line = f"{date_str} → {format_date_loc(date_end, lang)}"
-    else:
-        date_line = date_str
-
+    date_str  = format_date_loc(ev["date_start"], lang)
+    end_str   = f" → {format_date_loc(ev['date_end'], lang)}" if ev.get("date_end") else ""
     fmt_label = FORMATS.get(ev.get("format", "official"), "🎉 Official")
+    limit     = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
 
     organizer_name = ev.get("organizer_username") or ""
-    org_link       = ev.get("organizer_link") or ""
-    org_contacts   = ev.get("organizer_contacts") or ""
+    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {organizer_name}" if organizer_name else ""
 
-    if organizer_name:
-        if org_link:
-            name_part = f"[{organizer_name}]({org_link})"
-        elif " " not in organizer_name and not organizer_name.startswith("http"):
-            clean = organizer_name.lstrip("@")
-            name_part = f"[@{clean}](https://t.me/{clean})"
-        else:
-            name_part = organizer_name
-        contact_part = f" · [Contact]({org_contacts})" if org_contacts.startswith("http") else (f" · {org_contacts}" if org_contacts else "")
-        organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {name_part}{contact_part}"
+    if ev.get("external_url"):
+        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: [{s(lang, 'btn_register')}]({ev['external_url']})"
+    elif ev.get("organizer_contacts"):
+        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: {ev['organizer_contacts']}"
     else:
-        organizer_line = ""
-
-    reg_url = ev.get("external_url") or (org_contacts if org_contacts.startswith("http") else "")
-    if reg_url:
-        registration_line = f"\n📋 [{s(lang, 'btn_register')}]({reg_url})"
-        limit_line = f" · 👥 {ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else ""
-    elif ev.get("max_participants"):
-        registration_line = f"\n📋 {s(lang, 'card_ask_organizer')}"
-        limit_line = f" · 👥 {ev['max_participants']} {s(lang, 'card_spots')}"
-    else:
-        registration_line = f"\n📋 {s(lang, 'card_no_reg')}"
-        limit_line = ""
-
-    # Language line
-    langs = ev.get("event_languages") or []
-    lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
+        contact_line = ""
 
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev.get('id', '')}"
-    remind_url    = f"https://t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
-    bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
+    remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
     return (
         f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])} · {fmt_label}\n"
-        f"📅 {date_line}\n"
-        f"{location_link}"
-        f"{lang_line}"
+        f"📅 {date_str}{end_str}\n"
+        f"{location_link}\n"
+        f"👥 {limit}"
         f"{organizer_line}"
-        f"{registration_line}{limit_line}\n\n"
+        f"{contact_line}\n\n"
         f"{ev['description']}\n\n"
         f"——————————————————\n\n"
-        f"[{s(lang, 'card_event_page')}]({event_url})\n"
         f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
+        f"[{s(lang, 'card_event_page')}]({event_url})\n"
         f"[{s(lang, 'card_add_to_calendar')}]({gcal_url})\n"
         f"{s(lang, 'card_add_your_event')}"
     )
@@ -300,7 +266,7 @@ def event_share_text(ev: dict, lang: str = "ru") -> str:
     date_str   = format_date_ru(ev["date_start"])
     gcal_url   = build_google_calendar_url(ev)
     event_url  = f"{SITE_URL}/events/{ev['id']}"
-    remind_url = f"https://t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    remind_url = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     organizer  = f"\n{s(lang, 'card_organizer_reg', url=ev['external_url'])}" if ev.get("external_url") else ""
     contact_line = f"\n{s(lang, 'card_organizer_contact', contact=ev['organizer_contacts'])}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
     description = ev['description'][:300] + ('...' if len(ev['description']) > 300 else '')
@@ -314,8 +280,8 @@ def event_share_text(ev: dict, lang: str = "ru") -> str:
         f"{organizer}\n\n"
         f"{description}\n\n"
         f"——————————————————\n\n"
-        f"[{s(lang, 'card_event_page')}]({event_url})\n"
         f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
+        f"[{s(lang, 'card_event_page')}]({event_url})\n"
         f"[{s(lang, 'card_add_to_calendar')}]({gcal_url})\n"
         f"{s(lang, 'card_add_your_event')}"
     )
@@ -497,14 +463,17 @@ async def _show_main_menu(message, role: str, lang: str = "ru", tg_id: int = Non
         if tg_id:
             profile = _get_org_profile(tg_id)
             if profile:
-                fmt       = profile.get("org_format", "")
-                org_name  = profile.get("org_name") or ""
+                fmt         = profile.get("org_format", "")
+                org_name    = profile.get("org_name") or ""
                 org_contact = profile.get("org_contact") or ""
-                fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+                fmt_label   = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+                user_row    = get_user(tg_id)
+                tg_username = user_row.get("tg_username") or "" if user_row else ""
+                tg_str      = f"@{tg_username.lstrip('@')}" if tg_username else "—"
                 if org_name:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {org_name}\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n🏷 {s(lang, 'menu_org_name')}: {org_name}\n👤 {s(lang, 'menu_org_tg')}: {tg_str}\n📋 {s(lang, 'menu_org_contact')}: {org_contact}"
                 else:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {s(lang, 'menu_org_tg')}: {tg_str}\n📋 {s(lang, 'menu_org_contact')}: {org_contact}"
 
         await message.reply_text(
             profile_text,
@@ -1624,9 +1593,9 @@ async def ev_get_address(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         s(lang, "ask_limit"),
         reply_markup=InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("5",                         callback_data="limit:5"),
                 InlineKeyboardButton("10",                        callback_data="limit:10"),
-                InlineKeyboardButton("15",                        callback_data="limit:15"),
+                InlineKeyboardButton("20",                        callback_data="limit:20"),
+                InlineKeyboardButton("50",                        callback_data="limit:50"),
                 InlineKeyboardButton(s(lang, "btn_no_limit"),     callback_data="limit:0"),
             ],
             [InlineKeyboardButton(s(lang, "btn_custom_limit"),    callback_data="limit:custom")],
@@ -1883,9 +1852,9 @@ async def ev_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             s(lang, "ask_new_limit"),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("5",          callback_data="evv:5"),
                 InlineKeyboardButton("10",         callback_data="evv:10"),
-                InlineKeyboardButton("15",         callback_data="evv:15"),
+                InlineKeyboardButton("20",         callback_data="evv:20"),
+                InlineKeyboardButton("50",         callback_data="evv:50"),
                 InlineKeyboardButton(s(lang, "btn_no_limit"), callback_data="evv:0"),
             ]])
         )
@@ -2691,9 +2660,9 @@ async def handle_org_edit_field(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             s(lang, "ask_new_limit"),
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("5",                         callback_data="oev:5"),
                 InlineKeyboardButton("10",                        callback_data="oev:10"),
-                InlineKeyboardButton("15",                        callback_data="oev:15"),
+                InlineKeyboardButton("20",                        callback_data="oev:20"),
+                InlineKeyboardButton("50",                        callback_data="oev:50"),
                 InlineKeyboardButton(s(lang, "btn_no_limit"),     callback_data="oev:0"),
             ]])
         )
