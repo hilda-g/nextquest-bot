@@ -901,17 +901,11 @@ STRINGS = {
         "el": "Επικοινωνήστε με διοργανωτή",
         "uk": "Запис у організатора",
     },
-    "card_no_reg": {
-        "en": "Free entry",
-        "ru": "Вход свободный",
-        "el": "Ελεύθερη είσοδος",
-        "uk": "Вхід вільний",
-    },
-    "card_ask_organizer": {
-        "en": "Contact organizer",
-        "ru": "Запись у организатора",
-        "el": "Επικοινωνήστε με διοργανωτή",
-        "uk": "Запис у організатора",
+    "card_lang_label": {
+        "en": "Lang",
+        "ru": "Язык",
+        "el": "Γλώσσα",
+        "uk": "Мова",
     },
     "card_subscribe_reminder": {
         "en": "🔔 Subscribe for reminder",

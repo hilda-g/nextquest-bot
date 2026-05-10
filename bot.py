@@ -272,7 +272,7 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
         limit_line = ""
 
     langs = ev.get("event_languages") or []
-    lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
+    lang_line = "\n🗣 " + s(lang, "card_lang_label") + ": " + " · ".join(l.upper() for l in langs) if langs else ""
 
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev.get('id', '')}"
