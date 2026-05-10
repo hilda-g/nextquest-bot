@@ -247,10 +247,10 @@ def build_new_event_message(ev: dict) -> str:
         registration_line = f"\n📋 [Registration]({reg_url})"
         limit_line = f" · 👥 {ev['max_participants']} max" if ev.get("max_participants") else ""
     elif ev.get("max_participants"):
-        registration_line = "\n📋 Contact organizer"
+        registration_line = "\n📋 For registration contact organizer"
         limit_line = f" · 👥 {ev['max_participants']} max"
     else:
-        registration_line = "\n📋 Free entry"
+        registration_line = "\n📋 No registration needed"
         limit_line = ""
 
     description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
