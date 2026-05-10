@@ -225,7 +225,13 @@ def build_new_event_message(ev: dict) -> str:
     org_contacts = ev.get("organizer_contacts") or ""
 
     if organizer_name:
-        name_part = f"[{organizer_name}]({org_link})" if org_link else organizer_name
+        if org_link:
+            name_part = f"[{organizer_name}]({org_link})"
+        elif " " not in organizer_name and not organizer_name.startswith("http"):
+            clean = organizer_name.lstrip("@")
+            name_part = f"[@{clean}](https://t.me/{clean})"
+        else:
+            name_part = organizer_name
         contact_part = f" · [Contact]({org_contacts})" if org_contacts.startswith("http") else (f" · {org_contacts}" if org_contacts else "")
         organizer_line = f"\n🎪 Organizer: {name_part}{contact_part}"
     else:
