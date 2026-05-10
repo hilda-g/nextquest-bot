@@ -486,10 +486,10 @@ STRINGS = {
         "uk": "✅ Так",
     },
     "btn_no": {
-        "en": "❌ No",
-        "ru": "❌ Нет",
-        "el": "❌ Όχι",
-        "uk": "❌ Ні",
+        "en": " No",
+        "ru": " Нет",
+        "el": " Όχι",
+        "uk": " Ні",
     },
     "ask_reg_url": {
         "en": "Send the registration link:",
