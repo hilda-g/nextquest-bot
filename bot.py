@@ -1844,6 +1844,14 @@ async def ev_submit_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         else:
             res = supabase.table("events").insert(db_ev).execute()
             event_id = res.data[0]["id"]
+
+        # Generate and save translations immediately
+        try:
+            translations = translate_description(ev.get("description", ""))
+            if translations:
+                supabase.table("events").update(translations).eq("id", event_id).execute()
+        except Exception as te:
+            logger.warning(f"Translation generation failed for event {event_id}: {te}")
     except Exception as e:
         logger.error(f"Failed to save event to Supabase: {e}")
         await query.message.reply_text(s(lang, "save_error"))
