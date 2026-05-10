@@ -316,7 +316,9 @@ def event_share_text(ev: dict, lang: str = "ru") -> str:
         f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
         f"[{s(lang, 'card_add_to_calendar')}]({gcal_url})\n"
         f"{s(lang, 'card_add_your_event')}"
-    )(prefix: str) -> InlineKeyboardMarkup:
+    )
+
+def make_year_keyboard(prefix: str) -> InlineKeyboardMarkup:
     now = datetime.now().year
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(str(y), callback_data=f"{prefix}:{y}")
