@@ -2275,10 +2275,12 @@ async def _cmd_events_inner(message, lang: str = "ru"):
             InlineKeyboardButton(s(lang, "btn_notify_me"), callback_data=f"subev:{ev['id']}"),
             InlineKeyboardButton(s(lang, "btn_register"), url=ev.get("external_url") or f"{SITE_URL}/events/{ev['id']}"),
         ]])
+        event_url = f"{SITE_URL}/events/{ev['id']}"
         await message.reply_text(
-            f"{cat} *{ev['title']}*\n📍 {ev['location_city']} · 🗓 {date}",
+            f"{cat} [{ev['title']}]({event_url})\n📍 {ev['location_city']} · 🗓 {date}",
             reply_markup=keyboard,
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
         )
 
 async def cmd_events(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
