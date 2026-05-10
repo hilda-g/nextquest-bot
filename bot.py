@@ -499,10 +499,11 @@ async def _show_main_menu(message, role: str, lang: str = "ru", tg_id: int = Non
                 user_row    = get_user(tg_id)
                 tg_username = user_row.get("tg_username") or "" if user_row else ""
                 tg_line     = f"\n👤 @{tg_username.lstrip('@')}" if tg_username else ""
+                tg_str = f"@{tg_username.lstrip('@')}" if tg_username else "—"
                 if org_name:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n🏷 {org_name}{tg_line}\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n🏷 {s(lang, 'menu_org_name')}: {org_name}\n👤 {s(lang, 'menu_org_tg')}: {tg_str}\n📋 {s(lang, 'menu_org_contact')}: {org_contact}"
                 else:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*{tg_line}\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {s(lang, 'menu_org_tg')}: {tg_str}\n📋 {s(lang, 'menu_org_contact')}: {org_contact}"
 
         await message.reply_text(
             profile_text,

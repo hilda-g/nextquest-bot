@@ -62,6 +62,24 @@ STRINGS = {
         "el": "Μενού διοργανωτή:",
         "uk": "Меню організатора:",
     },
+    "menu_org_name": {
+        "en": "Org",
+        "ru": "Орг",
+        "el": "Οργ",
+        "uk": "Орг",
+    },
+    "menu_org_tg": {
+        "en": "TG",
+        "ru": "TG",
+        "el": "TG",
+        "uk": "TG",
+    },
+    "menu_org_contact": {
+        "en": "Contact",
+        "ru": "Контакт",
+        "el": "Επαφή",
+        "uk": "Контакт",
+    },
     "menu_participant": {
         "en": "Menu:",
         "ru": "Меню:",
