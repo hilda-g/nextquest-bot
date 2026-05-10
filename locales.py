@@ -62,6 +62,24 @@ STRINGS = {
         "el": "Μενού διοργανωτή:",
         "uk": "Меню організатора:",
     },
+    "menu_org_name": {
+        "en": "Org",
+        "ru": "Орг",
+        "el": "Οργ",
+        "uk": "Орг",
+    },
+    "menu_org_tg": {
+        "en": "TG",
+        "ru": "TG",
+        "el": "TG",
+        "uk": "TG",
+    },
+    "menu_org_contact": {
+        "en": "Contact",
+        "ru": "Контакт",
+        "el": "Επαφή",
+        "uk": "Контакт",
+    },
     "menu_participant": {
         "en": "Menu:",
         "ru": "Меню:",
@@ -864,6 +882,18 @@ STRINGS = {
         "ru": "без лимита",
         "el": "χωρίς όριο",
         "uk": "без ліміту",
+    },
+    "card_no_reg": {
+        "en": "Free entry",
+        "ru": "Вход свободный",
+        "el": "Ελεύθερη είσοδος",
+        "uk": "Вхід вільний",
+    },
+    "card_ask_organizer": {
+        "en": "Contact organizer",
+        "ru": "Запись у организатора",
+        "el": "Επικοινωνήστε με διοργανωτή",
+        "uk": "Запис у організатора",
     },
     "card_no_reg": {
         "en": "Free entry",
