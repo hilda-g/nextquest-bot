@@ -96,6 +96,7 @@ REJECT_REASONS = [
 # ─── Wizard states ───────────────────────────────────────────
 (
     EV_CATEGORY,
+    EV_LANG,
     EV_YEAR, EV_MONTH, EV_DAY, EV_HOUR, EV_MINUTE,
     EV_END_CHOICE, EV_END_YEAR, EV_END_MONTH, EV_END_DAY, EV_END_HOUR, EV_END_MINUTE,
     EV_END_TIME_CHOICE, EV_END_TIME_HOUR, EV_END_TIME_MINUTE,
@@ -114,7 +115,7 @@ REJECT_REASONS = [
     ORG_EDIT_FIELD, ORG_EDIT_VALUE,
     # Organizer profile setup (asked once before first event)
     EV_ORG_TYPE, EV_ORG_NAME, EV_ORG_LINK, EV_ORG_CONTACT,
-) = range(35)
+) = range(36)
 
 
 # ─── Helpers ─────────────────────────────────────────────────
@@ -1338,28 +1339,63 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["new_event"]["category"] = q.data.split(":")[1]
     ctx.user_data["new_event"]["organizer_tg_id"] = q.from_user.id
     ctx.user_data["new_event"]["organizer_username"] = q.from_user.username or str(q.from_user.id)
-    await _save_draft(ctx)
     lang = get_user_lang(q.from_user.id)
+    return await _ask_event_language(q.message, lang)
 
-    # Check if organizer profile already set — skip format/org questions if so
-    profile = _get_org_profile(q.from_user.id)
-    if profile:
-        # Pre-fill event from saved profile
-        ctx.user_data["new_event"]["format"] = profile["org_format"]
-        if profile.get("org_name"):
-            ctx.user_data["new_event"]["organizer_username"] = profile["org_name"]
-        if profile.get("org_contact"):
-            ctx.user_data["new_event"]["organizer_contacts"] = profile["org_contact"]
-        # Jump straight to date picker
-        await q.message.reply_text(
-            s(lang, "step_date_start"),
-            reply_markup=make_year_keyboard("sy"),
-            parse_mode="Markdown"
+
+# Шаг 2 — язык события
+LANG_OPTIONS = ["EL", "RU", "EN", "UK"]
+
+def _lang_keyboard(selected: list) -> InlineKeyboardMarkup:
+    buttons = [
+        InlineKeyboardButton(
+            ("☑️ " if l in selected else "◻️ ") + l,
+            callback_data=f"evlang:{l}"
         )
-        return EV_YEAR
+        for l in LANG_OPTIONS
+    ]
+    return InlineKeyboardMarkup([buttons, [InlineKeyboardButton("✅ Done", callback_data="evlang:done")]])
 
-    # No profile yet — ask format first
-    return await _ask_org_format(q.message, lang)
+async def _ask_event_language(message, lang: str) -> int:
+    await message.reply_text(
+        s(lang, "ask_event_language"),
+        reply_markup=_lang_keyboard([]),
+        parse_mode="Markdown"
+    )
+    return EV_LANG
+
+async def ev_get_lang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    lang = get_user_lang(q.from_user.id)
+    choice = q.data.split(":")[1]
+    selected = ctx.user_data.get("_ev_langs", [])
+
+    if choice == "done":
+        ctx.user_data["new_event"]["event_languages"] = selected if selected else []
+        ctx.user_data.pop("_ev_langs", None)
+        # Now check org profile and continue
+        profile = _get_org_profile(q.from_user.id)
+        # Always clear stale org fields first
+        ctx.user_data["new_event"].pop("organizer_contacts", None)
+        ctx.user_data["new_event"].pop("organizer_link", None)
+        if profile:
+            ctx.user_data["new_event"]["format"] = profile["org_format"]
+            if profile.get("org_name"):
+                ctx.user_data["new_event"]["organizer_username"] = profile["org_name"]
+            if profile.get("org_contact"):
+                ctx.user_data["new_event"]["organizer_contacts"] = profile["org_contact"]
+            await q.message.reply_text(s(lang, "step_date_start"), reply_markup=make_year_keyboard("sy"), parse_mode="Markdown")
+            return EV_YEAR
+        return await _ask_org_format(q.message, lang)
+
+    # Toggle selection
+    if choice in selected:
+        selected.remove(choice)
+    else:
+        selected.append(choice)
+    ctx.user_data["_ev_langs"] = selected
+    await q.message.edit_reply_markup(reply_markup=_lang_keyboard(selected))
+    return EV_LANG
 
 
 # ─── Organizer profile setup (asked once) ────────────────────
@@ -1518,7 +1554,7 @@ async def ev_end_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         s(lang, "ask_end_time_choice"),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_yes"),  callback_data="etc:yes"),
-            InlineKeyboardButton(s(lang, "btn_skip"), callback_data="etc:skip"),
+            InlineKeyboardButton(s(lang, "btn_no"),   callback_data="etc:skip"),
         ]]),
         parse_mode="Markdown"
     )
@@ -3216,6 +3252,7 @@ def build_application() -> Application:
         ],
         states={
             EV_CATEGORY:   [CallbackQueryHandler(ev_get_category, pattern="^cat:")],
+            EV_LANG:       [CallbackQueryHandler(ev_get_lang,      pattern="^evlang:")],
             EV_ORG_TYPE:   [CallbackQueryHandler(ev_org_type,     pattern="^orgfmt:")],
             EV_ORG_NAME:   [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_org_name)],
             EV_ORG_LINK:   [MessageHandler(filters.TEXT & ~filters.COMMAND, ev_org_link)],
