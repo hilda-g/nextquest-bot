@@ -1329,6 +1329,11 @@ async def ev_get_category(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # Check if organizer profile already set — skip format/org questions if so
     profile = _get_org_profile(q.from_user.id)
+
+    # Always clear stale org fields first — prevents old cached data leaking in
+    ctx.user_data["new_event"].pop("organizer_contacts", None)
+    ctx.user_data["new_event"].pop("organizer_link", None)
+
     if profile:
         # Pre-fill event from saved profile
         ctx.user_data["new_event"]["format"] = profile["org_format"]
