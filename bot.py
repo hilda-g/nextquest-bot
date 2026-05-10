@@ -227,20 +227,41 @@ def maps_url(city: str, address: str) -> str:
     return f"https://maps.google.com/?q={q}"
 
 def event_card_text(ev: dict, lang: str = "ru") -> str:
-    date_str  = format_date_loc(ev["date_start"], lang)
-    end_str   = f" → {format_date_loc(ev['date_end'], lang)}" if ev.get("date_end") else ""
+    # Date line — same logic as channel_notifier
+    date_str = format_date_loc(ev["date_start"], lang)
+    date_end = ev.get("date_end")
+    if date_end:
+        start_d = ev["date_start"][:10]
+        end_d   = date_end[:10]
+        if start_d == end_d:
+            # same-day: show 09:00 - 22:00
+            end_time = format_date_loc(date_end, lang).split("·")[-1].strip() if "·" in format_date_loc(date_end, lang) else date_end[11:16]
+            date_line = f"{date_str} - {end_time}"
+        else:
+            date_line = f"{date_str} → {format_date_loc(date_end, lang)}"
+    else:
+        date_line = date_str
+
     fmt_label = FORMATS.get(ev.get("format", "official"), "🎉 Official")
-    limit     = f"{ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else s(lang, "card_no_limit")
 
     organizer_name = ev.get("organizer_username") or ""
-    organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {organizer_name}" if organizer_name else ""
+    org_link       = ev.get("organizer_link") or ""
+    org_contacts   = ev.get("organizer_contacts") or ""
 
-    if ev.get("external_url"):
-        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: [{s(lang, 'btn_register')}]({ev['external_url']})"
-    elif ev.get("organizer_contacts"):
-        contact_line = f"\n📋 {s(lang, 'card_contact_label')}: {ev['organizer_contacts']}"
+    if organizer_name:
+        name_part    = f"[{organizer_name}]({org_link})" if org_link else organizer_name
+        contact_part = f" · [Contact]({org_contacts})" if org_contacts.startswith("http") else (f" · {org_contacts}" if org_contacts else "")
+        organizer_line = f"\n🎪 {s(lang, 'card_organizer_label')}: {name_part}{contact_part}"
     else:
-        contact_line = ""
+        organizer_line = ""
+
+    reg_url = ev.get("external_url") or (org_contacts if org_contacts.startswith("http") else "")
+    registration_line = f"\n📋 [{s(lang, 'btn_register')}]({reg_url})" if reg_url else ""
+    limit_line = f" · 👥 {ev['max_participants']} {s(lang, 'card_spots')}" if ev.get("max_participants") else ""
+
+    # Language line
+    langs = ev.get("event_languages") or []
+    lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
 
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev.get('id', '')}"
@@ -249,11 +270,11 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
     return (
         f"*{ev['title'].upper()}*\n"
         f"{CATEGORIES.get(ev['category'], ev['category'])} · {fmt_label}\n"
-        f"📅 {date_str}{end_str}\n"
-        f"{location_link}\n"
-        f"👥 {limit}"
+        f"📅 {date_line}\n"
+        f"{location_link}"
+        f"{lang_line}"
         f"{organizer_line}"
-        f"{contact_line}\n\n"
+        f"{registration_line}{limit_line}\n\n"
         f"{ev['description']}\n\n"
         f"——————————————————\n\n"
         f"[{s(lang, 'card_subscribe_reminder')}]({remind_url})\n"
