@@ -2048,7 +2048,7 @@ _EVENT_DB_COLUMNS = {
     "location_city", "location_address", "location_lat", "location_lng",
     "organizer_tg_id", "organizer_username", "status",
     "max_participants", "external_url", "organizer_contacts",
-    "reject_reason", "format",
+    "reject_reason", "format", "event_languages",
 }
 
 def _db_fields(ev: dict) -> dict:
