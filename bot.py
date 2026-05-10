@@ -1713,11 +1713,13 @@ async def ev_reg_choice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(s(lang, "ask_reg_url"))
         return EV_URL
     else:
-        # No external link — check if org profile already has a contact saved
-        profile = _get_org_profile(query.from_user.id)
-        saved_contact = profile.get("org_contact") if profile else None
+        # No external link — use contact already set in wizard, or fall back to saved profile
+        saved_contact = ctx.user_data["new_event"].get("organizer_contacts")
+        if not saved_contact:
+            profile = _get_org_profile(query.from_user.id)
+            saved_contact = profile.get("org_contact") if profile else None
         if saved_contact:
-            # Use saved contact, skip the question, go straight to preview
+            # Use contact, skip the question, go straight to preview
             ctx.user_data["new_event"]["organizer_contacts"] = saved_contact
             ctx.user_data["new_event"].pop("external_url", None)
             ev = ctx.user_data["new_event"]
