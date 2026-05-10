@@ -490,14 +490,19 @@ async def _show_main_menu(message, role: str, lang: str = "ru", tg_id: int = Non
         if tg_id:
             profile = _get_org_profile(tg_id)
             if profile:
-                fmt       = profile.get("org_format", "")
-                org_name  = profile.get("org_name") or ""
+                fmt         = profile.get("org_format", "")
+                org_name    = profile.get("org_name") or ""
                 org_contact = profile.get("org_contact") or ""
-                fmt_label = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+                org_link    = profile.get("org_link") or ""
+                fmt_label   = {"private": "🔒 Private", "community": "✨ Community", "official": "🎉 Official"}.get(fmt, fmt)
+                # Get TG username from users table
+                user_row    = get_user(tg_id)
+                tg_username = user_row.get("tg_username") or "" if user_row else ""
+                tg_line     = f"\n👤 @{tg_username.lstrip('@')}" if tg_username else ""
                 if org_name:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n👤 {org_name}\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n🏷 {org_name}{tg_line}\n📋 {org_contact}"
                 else:
-                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*\n📋 {org_contact}"
+                    profile_text = f"🎪 *Organizer Menu*\n\n*{fmt_label}*{tg_line}\n📋 {org_contact}"
 
         await message.reply_text(
             profile_text,
