@@ -315,7 +315,7 @@ async def handle_event_webhook(
     if not is_new_publish:
         return {"ok": True, "skipped": "not a new publish"}
 
-    # Skip posting if notify_channel is explicitly False (silent publish)
+    # Skip Telegram post if notify_channel is explicitly False (silent publish)
     if record.get("notify_channel") == False:
         return {"ok": True, "skipped": "notify_channel=false (silent publish)"}
 
