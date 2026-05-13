@@ -189,6 +189,10 @@ MONTHS_EN  = ["January","February","March","April","May","June",
               "July","August","September","October","November","December"]
 WEEKDAYS_EN = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
 
+MONTHS_RU   = ["января","февраля","марта","апреля","мая","июня",
+               "июля","августа","сентября","октября","ноября","декабря"]
+WEEKDAYS_RU = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
+
 def format_date_human(iso: str) -> str:
     """Convert ISO datetime to: Wednesday, 21 April · 16:30"""
     from datetime import datetime as dt
@@ -214,10 +218,19 @@ def format_date_range(start_iso: str, end_iso: str | None) -> str:
         return f"{base} - {e.strftime('%H:%M')}"
     return f"{base} → {WEEKDAYS_EN[e.weekday()]}, {e.day} {MONTHS_EN[e.month - 1]} · {e.strftime('%H:%M')}"
 
+def format_date_range_ru(start_iso: str, end_iso: str | None) -> str:
+    from datetime import datetime as dt
+    s = dt.fromisoformat(start_iso[:16])
+    base = f"{WEEKDAYS_RU[s.weekday()]}, {s.day} {MONTHS_RU[s.month - 1]} · {s.strftime('%H:%M')}"
+    if not end_iso:
+        return base
+    e = dt.fromisoformat(end_iso[:16])
+    if s.date() == e.date():
+        return f"{base} - {e.strftime('%H:%M')}"
+    return f"{base} → {WEEKDAYS_RU[e.weekday()]}, {e.day} {MONTHS_RU[e.month - 1]} · {e.strftime('%H:%M')}"
+
 def build_new_event_message(ev: dict) -> str:
-    date_str  = format_date_range(ev["date_start"], ev.get("date_end"))
-    cat       = CATEGORIES.get(ev.get("category", "other"), "🎪 Event")
-    fmt       = FORMATS.get(ev.get("format", "official"), "🎉 Official")
+    date_str  = format_date_range_ru(ev["date_start"], ev.get("date_end"))
     location  = f"{ev.get('location_city', '')} · {ev.get('location_address', '')}"
     maps_link = f"[📍 {location}]({maps_url(ev.get('location_city', ''), ev.get('location_address', ''))})"
 
@@ -234,46 +247,44 @@ def build_new_event_message(ev: dict) -> str:
         else:
             name_part = organizer_name
         contact_part = f" · [Contact]({org_contacts})" if org_contacts.startswith("http") else (f" · {org_contacts}" if org_contacts else "")
-        organizer_line = f"\n🎪 Organizer: {name_part}{contact_part}"
+        organizer_line = f"\n🎪 {name_part}{contact_part}"
     else:
         organizer_line = ""
 
     # Language line
     langs = ev.get("event_languages") or []
-    lang_line = "\n🗣 Lang: " + " · ".join(l.upper() for l in langs) if langs else ""
+    lang_line = "\n🗣 " + " · ".join(l.upper() for l in langs) if langs else ""
 
     # Registration and limit
     reg_url = ev.get("external_url") or (org_contacts if (org_contacts.startswith("http") and ev.get("max_participants")) else "")
     if reg_url:
-        registration_line = f"\n📋 [Registration]({reg_url})"
+        registration_line = f"\n📋 [Регистрация]({reg_url})"
         limit_line = f" · 👥 {ev['max_participants']} max" if ev.get("max_participants") else ""
     elif ev.get("max_participants"):
-        registration_line = "\n📋 For registration contact organizer"
+        registration_line = "\n📋 Для регистрации свяжитесь с организатором"
         limit_line = f" · 👥 {ev['max_participants']} max"
     else:
-        registration_line = "\n📋 No registration needed"
+        registration_line = "\n📋 Регистрация не требуется"
         limit_line = ""
 
-    description  = ev.get("description", "")[:400] + ("..." if len(ev.get("description", "")) > 400 else "")
-    gcal_url     = build_google_calendar_url(ev)
-    event_url    = f"{SITE_URL}/events/{ev['id']}"
-    remind_url   = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
+    description   = ev.get("description", "")
+    gcal_url      = build_google_calendar_url(ev)
+    event_url     = f"{SITE_URL}/events/{ev['id']}"
+    remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
-        f"*{ev['title'].upper()}*\n"
-        f"{cat} · {fmt}\n"
+        f"[🔹 {ev['title'].upper()}]({event_url})\n\n"
+        f"{description}\n\n"
         f"📅 {date_str}\n"
         f"{maps_link}"
         f"{lang_line}"
         f"{organizer_line}"
         f"{registration_line}{limit_line}\n\n"
-        f"{description}\n\n"
         f"——————————————————\n\n"
-        f"[🌐 Страница события]({event_url})\n"
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
-        f"⭐ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
+        f"⭐️ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
     )
 
 
