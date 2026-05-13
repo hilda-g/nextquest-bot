@@ -36,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────
 BOT_TOKEN      = os.environ["BOT_TOKEN"]
-CHANNEL_ID     = os.environ["CHANNEL_ID"]          # e.g. -1001234567890
+CHANNEL_ID      = os.environ["CHANNEL_ID"]          # e.g. -1001234567890
+TEST_CHANNEL_ID = os.environ.get("TEST_CHANNEL_ID", "")  # optional test channel
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
 BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
@@ -388,6 +389,53 @@ async def post_manual(
         logger.info(f"Manual post sent for event {ev.get('id')}")
     except telegram.error.TelegramError as e:
         logger.error(f"Telegram error on manual post: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"ok": True}
+
+
+@app.post("/post/test")
+async def post_test(
+    request: Request,
+    x_webhook_secret: str | None = Header(default=None),
+):
+    """Called by AdminPanel 'Test Post' button. Posts to TEST channel only."""
+    if WEBHOOK_SECRET:
+        if x_webhook_secret != WEBHOOK_SECRET:
+            raise HTTPException(status_code=403, detail="Invalid secret")
+
+    if not TEST_CHANNEL_ID:
+        raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
+
+    payload = await request.json()
+    ev = payload.get("record") or payload
+
+    if not ev:
+        raise HTTPException(status_code=400, detail="No event data")
+
+    text  = build_new_event_message(ev)
+    cover = ev.get("cover_image_url")
+
+    try:
+        photo = await fetch_photo_for_telegram(cover) if cover else None
+
+        if photo:
+            await bot.send_photo(
+                chat_id=TEST_CHANNEL_ID,
+                photo=photo,
+                caption=text,
+                parse_mode="Markdown",
+            )
+        else:
+            await bot.send_message(
+                chat_id=TEST_CHANNEL_ID,
+                text=text,
+                parse_mode="Markdown",
+                disable_web_page_preview=False,
+            )
+        logger.info(f"Test post sent for event {ev.get('id')} to test channel")
+    except telegram.error.TelegramError as e:
+        logger.error(f"Telegram error on test post: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"ok": True}
