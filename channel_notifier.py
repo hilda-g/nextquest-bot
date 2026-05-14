@@ -227,7 +227,7 @@ def format_date_range_ru(start_iso: str, end_iso: str | None) -> str:
     e = dt.fromisoformat(end_iso[:16])
     if s.date() == e.date():
         return f"{base} - {e.strftime('%H:%M')}"
-    return f"{base} → {WEEKDAYS_RU[e.weekday()]}, {e.day} {MONTHS_RU[e.month - 1]} · {e.strftime('%H:%M')}"
+    return f"{s.day} {MONTHS_RU[s.month - 1]} - {e.day} {MONTHS_RU[e.month - 1]}, {s.strftime('%H:%M')} - {e.strftime('%H:%M')}"
 
 def build_new_event_message(ev: dict) -> str:
     date_str  = format_date_range_ru(ev["date_start"], ev.get("date_end"))
@@ -267,15 +267,14 @@ def build_new_event_message(ev: dict) -> str:
         registration_line = "\n📋 Регистрация не требуется"
         limit_line = ""
 
-    description   = ev.get("description_ru") or ev.get("description", "")
-    title         = ev.get("title_ru") or ev.get("title", "")
+    description   = ev.get("description", "")
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev['id']}"
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
-        f"[🔹 {title.upper()}]({event_url})\n\n"
+        f"[🔹 {ev['title'].upper()}]({event_url})\n\n"
         f"{description}\n\n"
         f"📅 {date_str}\n"
         f"{maps_link}"
