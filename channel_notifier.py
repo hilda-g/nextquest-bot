@@ -41,8 +41,8 @@ TEST_CHANNEL_ID = os.environ.get("TEST_CHANNEL_ID", "")  # optional test channel
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
 BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
-SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
@@ -228,7 +228,7 @@ def format_date_range_ru(start_iso: str, end_iso: str | None) -> str:
     e = dt.fromisoformat(end_iso[:16])
     if s.date() == e.date():
         return f"{base} - {e.strftime('%H:%M')}"
-    return f"{s.day} {MONTHS_RU[s.month - 1]} - {e.day} {MONTHS_RU[e.month - 1]}, {s.strftime('%H:%M')} - {e.strftime('%H:%M')}"
+    return f"{base} → {WEEKDAYS_RU[e.weekday()]}, {e.day} {MONTHS_RU[e.month - 1]} · {e.strftime('%H:%M')}"
 
 def build_new_event_message(ev: dict) -> str:
     date_str  = format_date_range_ru(ev["date_start"], ev.get("date_end"))
@@ -464,12 +464,12 @@ CATEGORY_EMOJI_RU = {
 WEEKDAYS_RU_FULL = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
 
-async def fetch_all_events() -> list[dict]:
-    url = f"{SUPABASE_URL}/rest/v1/events?select=*&status=eq.published&deleted_at=is.null"
+async def fetch_published_events() -> list[dict]:
+    url  = f"{SUPABASE_URL}/rest/v1/events?select=*&status=eq.published&deleted_at=is.null"
     hdrs = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        "Accept": "application/json",
+        "apikey":        SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Accept":        "application/json",
     }
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.get(url, headers=hdrs)
@@ -532,7 +532,7 @@ async def digest_post(
     if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=403, detail="Invalid secret")
     try:
-        events = await fetch_all_events()
+        events = await fetch_published_events()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch events: {e}")
     text = build_digest_message(events)
@@ -555,7 +555,7 @@ async def digest_test(
     if not TEST_CHANNEL_ID:
         raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
     try:
-        events = await fetch_all_events()
+        events = await fetch_published_events()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch events: {e}")
     text = build_digest_message(events)
