@@ -451,34 +451,24 @@ async def post_test(
 
     return {"ok": True}
 
+
 # ─── Weekly Digest ────────────────────────────────────────────
 
 CATEGORY_EMOJI_RU = {
-    "boardgames": "🎲",
-    "rpg":        "🧙",
-    "larp":       "⚔️",
-    "festival":   "🎪",
-    "cosplay":    "👽",
-    "lectures":   "🔭",
-    "workshops":  "🧵",
-    "gaming":     "🎮",
-    "market":     "🛍️",
-    "other":      "🃏",
+    "boardgames": "🎲", "rpg": "🧙", "larp": "⚔️",
+    "festival": "🎪", "cosplay": "👽", "lectures": "🔭",
+    "workshops": "🧵", "gaming": "🎮", "market": "🛍️", "other": "🃏",
 }
 
-WEEKDAYS_RU_FULL = [
-    "Понедельник", "Вторник", "Среда",
-    "Четверг", "Пятница", "Суббота", "Воскресенье",
-]
+WEEKDAYS_RU_FULL = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
 def build_digest_message(events: list[dict]) -> str:
     from datetime import datetime as dt, timedelta, date
+    from itertools import groupby
 
-    today = date.today()
-    week_start = today
+    today      = date.today()
     week_end   = today + timedelta(days=6)
 
-    # Filter: published, not deleted, starts within next 7 days
     upcoming = []
     for ev in events:
         if ev.get("deleted_at") or ev.get("status") != "published":
@@ -487,25 +477,18 @@ def build_digest_message(events: list[dict]) -> str:
             d = dt.fromisoformat(ev["date_start"][:16]).date()
         except Exception:
             continue
-        if week_start <= d <= week_end:
+        if today <= d <= week_end:
             upcoming.append((d, ev))
 
     if not upcoming:
         return "📭 Нет предстоящих событий на следующие 7 дней."
 
-    # Sort by date then time
     upcoming.sort(key=lambda x: x[0])
 
-    # Format header dates
-    start_label = f"{week_start.day} {MONTHS_RU[week_start.month - 1]}"
+    start_label = f"{today.day} {MONTHS_RU[today.month - 1]}"
     end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
-    lines = [
-        f"🗓 *Афиша NextQuest · {start_label}–{end_label}*",
-        "",
-    ]
+    lines = [f"🗓 *Афиша NextQuest · {start_label}–{end_label}*", ""]
 
-    # Group by date
-    from itertools import groupby
     for day_date, group in groupby(upcoming, key=lambda x: x[0]):
         day_name = WEEKDAYS_RU_FULL[day_date.weekday()]
         day_num  = f"{day_date.day} {MONTHS_RU[day_date.month - 1]}"
@@ -525,30 +508,20 @@ def build_digest_message(events: list[dict]) -> str:
         f"🌐 Все события: {SITE_URL}",
         f"🤖 Добавить своё: t.me/{BOT_USERNAME}",
     ]
-
     return "\n".join(lines)
 
 
 @app.post("/digest/post")
 async def digest_post(
     request: Request,
-    x_secret: str = Header(None, alias="X-Secret"),
+    x_webhook_secret: str | None = Header(default=None),
 ):
-    """Post weekly digest to the main channel."""
-    if x_secret != SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    res = supabase.table("events").select("*").execute()
-    events = res.data or []
-    text = build_digest_message(events)
-
+    if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    res    = supabase.table("events").select("*").execute()
+    text   = build_digest_message(res.data or [])
     try:
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=text,
-            parse_mode="Markdown",
-            disable_web_page_preview=True,
-        )
+        await bot.send_message(chat_id=CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to main channel")
         return {"status": "ok"}
     except Exception as e:
@@ -559,25 +532,16 @@ async def digest_post(
 @app.post("/digest/test")
 async def digest_test(
     request: Request,
-    x_secret: str = Header(None, alias="X-Secret"),
+    x_webhook_secret: str | None = Header(default=None),
 ):
-    """Post weekly digest to the test channel."""
-    if x_secret != SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret")
     if not TEST_CHANNEL_ID:
         raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
-
-    res = supabase.table("events").select("*").execute()
-    events = res.data or []
-    text = build_digest_message(events)
-
+    res  = supabase.table("events").select("*").execute()
+    text = build_digest_message(res.data or [])
     try:
-        await bot.send_message(
-            chat_id=TEST_CHANNEL_ID,
-            text=text,
-            parse_mode="Markdown",
-            disable_web_page_preview=True,
-        )
+        await bot.send_message(chat_id=TEST_CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to test channel")
         return {"status": "ok"}
     except Exception as e:
