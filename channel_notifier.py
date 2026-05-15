@@ -461,6 +461,12 @@ CATEGORY_EMOJI_RU = {
     "workshops": "🧵", "gaming": "🎮", "market": "🛍️", "other": "🃏",
 }
 
+CATEGORY_NAME_RU = {
+    "boardgames": "Board Games", "rpg": "Tabletop RPG", "larp": "LARP",
+    "festival": "Festival", "cosplay": "Cosplay", "lectures": "Lectures",
+    "workshops": "Workshops", "gaming": "Gaming", "market": "Market", "other": "Other",
+}
+
 WEEKDAYS_RU_FULL = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
 
@@ -494,32 +500,42 @@ def build_digest_message(events: list[dict]) -> str:
             upcoming.append((d, ev))
 
     if not upcoming:
-        return "📭 Нет предстоящих событий на следующие 7 дней."
+        return (
+            "🎲 Привет, искатели приключений!\n\n"
+            "На этой неделе тихо — но скоро будет жарко 🔥\n\n"
+            f"🌐 Следи за обновлениями: {SITE_URL}\n"
+            f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})"
+        )
 
     upcoming.sort(key=lambda x: x[0])
 
     start_label = f"{today.day} {MONTHS_RU[today.month - 1]}"
     end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
-    lines = [f"🗓 *Афиша NextQuest · {start_label}–{end_label}*", ""]
+
+    lines = [
+        f"🎲 Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n",
+    ]
 
     for day_date, grp in groupby(upcoming, key=lambda x: x[0]):
         day_name = WEEKDAYS_RU_FULL[day_date.weekday()]
         day_num  = f"{day_date.day} {MONTHS_RU[day_date.month - 1]}"
-        lines.append(f"📅 *{day_name}, {day_num}*")
+        lines.append(f"*{day_name}, {day_num}*")
         for _, ev in grp:
-            emoji    = CATEGORY_EMOJI_RU.get(ev.get("category", "other"), "🃏")
+            cat      = ev.get("category", "other")
+            emoji    = CATEGORY_EMOJI_RU.get(cat, "🃏")
+            cat_name = CATEGORY_NAME_RU.get(cat, "Other")
             title    = ev.get("title_ru") or ev.get("title", "")
             ev_url   = f"{SITE_URL}/events/{ev['id']}"
             time_str = ev["date_start"][11:16]
             city     = ev.get("location_city", "")
-            lines.append(f"{emoji} [{title}]({ev_url}) · {time_str} · {city}")
+            lines.append(f"[ {emoji} {cat_name} ] [{title}]({ev_url}) · {time_str} · {city}")
         lines.append("")
 
     lines += [
         "——————————————————",
         "",
         f"🌐 Все события: {SITE_URL}",
-        f"🤖 Добавить своё: t.me/{BOT_USERNAME}",
+        f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
     ]
     return "\n".join(lines)
 
