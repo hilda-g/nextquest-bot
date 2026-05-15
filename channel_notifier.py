@@ -41,7 +41,7 @@ TEST_CHANNEL_ID = os.environ.get("TEST_CHANNEL_ID", "")  # optional test channel
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
 BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
-SUPABASE_URL   = os.environ.get("SUPABASE_URL", "")
+SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 CATEGORIES = {
@@ -463,17 +463,19 @@ CATEGORY_EMOJI_RU = {
 
 WEEKDAYS_RU_FULL = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
+
 async def fetch_all_events() -> list[dict]:
-    """Fetch all published events from Supabase REST API."""
     url = f"{SUPABASE_URL}/rest/v1/events?select=*&status=eq.published&deleted_at=is.null"
-    headers = {
+    hdrs = {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Accept": "application/json",
     }
     async with httpx.AsyncClient(timeout=15) as client:
-        res = await client.get(url, headers=headers)
-        res.raise_for_status()
-        return res.json()
+        r = await client.get(url, headers=hdrs)
+        r.raise_for_status()
+        return r.json()
+
 
 def build_digest_message(events: list[dict]) -> str:
     from datetime import datetime as dt, timedelta, date
@@ -500,11 +502,11 @@ def build_digest_message(events: list[dict]) -> str:
     end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
     lines = [f"🗓 *Афиша NextQuest · {start_label}–{end_label}*", ""]
 
-    for day_date, group in groupby(upcoming, key=lambda x: x[0]):
+    for day_date, grp in groupby(upcoming, key=lambda x: x[0]):
         day_name = WEEKDAYS_RU_FULL[day_date.weekday()]
         day_num  = f"{day_date.day} {MONTHS_RU[day_date.month - 1]}"
         lines.append(f"📅 *{day_name}, {day_num}*")
-        for _, ev in group:
+        for _, ev in grp:
             emoji    = CATEGORY_EMOJI_RU.get(ev.get("category", "other"), "🃏")
             title    = ev.get("title_ru") or ev.get("title", "")
             ev_url   = f"{SITE_URL}/events/{ev['id']}"
@@ -529,8 +531,11 @@ async def digest_post(
 ):
     if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=403, detail="Invalid secret")
-    events = await fetch_all_events()
-    text   = build_digest_message(events)
+    try:
+        events = await fetch_all_events()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch events: {e}")
+    text = build_digest_message(events)
     try:
         await bot.send_message(chat_id=CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to main channel")
@@ -549,8 +554,11 @@ async def digest_test(
         raise HTTPException(status_code=403, detail="Invalid secret")
     if not TEST_CHANNEL_ID:
         raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
-    events = await fetch_all_events()
-    text   = build_digest_message(events)
+    try:
+        events = await fetch_all_events()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch events: {e}")
+    text = build_digest_message(events)
     try:
         await bot.send_message(chat_id=TEST_CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to test channel")
