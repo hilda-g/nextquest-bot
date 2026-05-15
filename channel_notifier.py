@@ -267,15 +267,14 @@ def build_new_event_message(ev: dict) -> str:
         registration_line = "\n📋 Регистрация не требуется"
         limit_line = ""
 
-    description   = ev.get("description_ru") or ev.get("description", "")
-    title         = ev.get("title_ru") or ev.get("title", "")
+    description   = ev.get("description", "")
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev['id']}"
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
-        f"[🔹 {title.upper()}]({event_url})\n\n"
+        f"[🔹 {ev['title'].upper()}]({event_url})\n\n"
         f"{description}\n\n"
         f"📅 {date_str}\n"
         f"{maps_link}"
@@ -451,6 +450,139 @@ async def post_test(
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"ok": True}
+
+# ─── Weekly Digest ────────────────────────────────────────────
+
+CATEGORY_EMOJI_RU = {
+    "boardgames": "🎲",
+    "rpg":        "🧙",
+    "larp":       "⚔️",
+    "festival":   "🎪",
+    "cosplay":    "👽",
+    "lectures":   "🔭",
+    "workshops":  "🧵",
+    "gaming":     "🎮",
+    "market":     "🛍️",
+    "other":      "🃏",
+}
+
+WEEKDAYS_RU_FULL = [
+    "Понедельник", "Вторник", "Среда",
+    "Четверг", "Пятница", "Суббота", "Воскресенье",
+]
+
+def build_digest_message(events: list[dict]) -> str:
+    from datetime import datetime as dt, timedelta, date
+
+    today = date.today()
+    week_start = today
+    week_end   = today + timedelta(days=6)
+
+    # Filter: published, not deleted, starts within next 7 days
+    upcoming = []
+    for ev in events:
+        if ev.get("deleted_at") or ev.get("status") != "published":
+            continue
+        try:
+            d = dt.fromisoformat(ev["date_start"][:16]).date()
+        except Exception:
+            continue
+        if week_start <= d <= week_end:
+            upcoming.append((d, ev))
+
+    if not upcoming:
+        return "📭 Нет предстоящих событий на следующие 7 дней."
+
+    # Sort by date then time
+    upcoming.sort(key=lambda x: x[0])
+
+    # Format header dates
+    start_label = f"{week_start.day} {MONTHS_RU[week_start.month - 1]}"
+    end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
+    lines = [
+        f"🗓 *Афиша NextQuest · {start_label}–{end_label}*",
+        "",
+    ]
+
+    # Group by date
+    from itertools import groupby
+    for day_date, group in groupby(upcoming, key=lambda x: x[0]):
+        day_name = WEEKDAYS_RU_FULL[day_date.weekday()]
+        day_num  = f"{day_date.day} {MONTHS_RU[day_date.month - 1]}"
+        lines.append(f"📅 *{day_name}, {day_num}*")
+        for _, ev in group:
+            emoji    = CATEGORY_EMOJI_RU.get(ev.get("category", "other"), "🃏")
+            title    = ev.get("title_ru") or ev.get("title", "")
+            ev_url   = f"{SITE_URL}/events/{ev['id']}"
+            time_str = ev["date_start"][11:16]
+            city     = ev.get("location_city", "")
+            lines.append(f"{emoji} [{title}]({ev_url}) · {time_str} · {city}")
+        lines.append("")
+
+    lines += [
+        "——————————————————",
+        "",
+        f"🌐 Все события: {SITE_URL}",
+        f"🤖 Добавить своё: t.me/{BOT_USERNAME}",
+    ]
+
+    return "\n".join(lines)
+
+
+@app.post("/digest/post")
+async def digest_post(
+    request: Request,
+    x_secret: str = Header(None, alias="X-Secret"),
+):
+    """Post weekly digest to the main channel."""
+    if x_secret != SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    res = supabase.table("events").select("*").execute()
+    events = res.data or []
+    text = build_digest_message(events)
+
+    try:
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=text,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+        logger.info("Weekly digest sent to main channel")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Digest post error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/digest/test")
+async def digest_test(
+    request: Request,
+    x_secret: str = Header(None, alias="X-Secret"),
+):
+    """Post weekly digest to the test channel."""
+    if x_secret != SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not TEST_CHANNEL_ID:
+        raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
+
+    res = supabase.table("events").select("*").execute()
+    events = res.data or []
+    text = build_digest_message(events)
+
+    try:
+        await bot.send_message(
+            chat_id=TEST_CHANNEL_ID,
+            text=text,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+        logger.info("Weekly digest sent to test channel")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Digest test error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")
