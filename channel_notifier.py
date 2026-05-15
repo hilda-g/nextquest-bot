@@ -268,14 +268,15 @@ def build_new_event_message(ev: dict) -> str:
         registration_line = "\n📋 Регистрация не требуется"
         limit_line = ""
 
-    description   = ev.get("description", "")
+    description   = ev.get("description_ru") or ev.get("description", "")
+    title         = ev.get("title_ru") or ev.get("title", "")
     gcal_url      = build_google_calendar_url(ev)
     event_url     = f"{SITE_URL}/events/{ev['id']}"
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
     return (
-        f"[🔹 {ev['title'].upper()}]({event_url})\n\n"
+        f"[🔹 {title.upper()}]({event_url})\n\n"
         f"{description}\n\n"
         f"📅 {date_str}\n"
         f"{maps_link}"
@@ -499,21 +500,24 @@ def build_digest_message(events: list[dict]) -> str:
         if today <= d <= week_end:
             upcoming.append((d, ev))
 
+    start_label = f"{today.day} {MONTHS_RU[today.month - 1]}"
+    end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
+
     if not upcoming:
         return (
-            "🎲 Привет, искатели приключений!\n\n"
-            "На этой неделе тихо — но скоро будет жарко 🔥\n\n"
+            f"📅 Афиша NextQuest · {start_label}–{end_label}\n"
+            f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n\n"
+            f"На этой неделе тихо — но скоро будет жарко 🔥\n\n"
             f"🌐 Следи за обновлениями: {SITE_URL}\n"
             f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})"
         )
 
     upcoming.sort(key=lambda x: x[0])
 
-    start_label = f"{today.day} {MONTHS_RU[today.month - 1]}"
-    end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
-
     lines = [
-        f"🎲 Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n",
+        f"📅 Афиша NextQuest · {start_label}–{end_label}",
+        f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:",
+        "",
     ]
 
     for day_date, grp in groupby(upcoming, key=lambda x: x[0]):
