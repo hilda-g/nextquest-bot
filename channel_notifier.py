@@ -42,6 +42,7 @@ WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 SITE_URL       = os.environ.get("SITE_URL", "https://nextquest.today")
 BOT_USERNAME   = os.environ.get("BOT_USERNAME", "NextQuestbot")
 SUPABASE_URL   = os.environ.get("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 CATEGORIES = {
     "boardgames": "🎲 Board Games",
@@ -462,17 +463,27 @@ CATEGORY_EMOJI_RU = {
 
 WEEKDAYS_RU_FULL = ["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"]
 
+async def fetch_all_events() -> list[dict]:
+    """Fetch all published events from Supabase REST API."""
+    url = f"{SUPABASE_URL}/rest/v1/events?select=*&status=eq.published&deleted_at=is.null"
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        res = await client.get(url, headers=headers)
+        res.raise_for_status()
+        return res.json()
+
 def build_digest_message(events: list[dict]) -> str:
     from datetime import datetime as dt, timedelta, date
     from itertools import groupby
 
-    today      = date.today()
-    week_end   = today + timedelta(days=6)
+    today    = date.today()
+    week_end = today + timedelta(days=6)
 
     upcoming = []
     for ev in events:
-        if ev.get("deleted_at") or ev.get("status") != "published":
-            continue
         try:
             d = dt.fromisoformat(ev["date_start"][:16]).date()
         except Exception:
@@ -518,8 +529,8 @@ async def digest_post(
 ):
     if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=403, detail="Invalid secret")
-    res    = supabase.table("events").select("*").execute()
-    text   = build_digest_message(res.data or [])
+    events = await fetch_all_events()
+    text   = build_digest_message(events)
     try:
         await bot.send_message(chat_id=CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to main channel")
@@ -538,8 +549,8 @@ async def digest_test(
         raise HTTPException(status_code=403, detail="Invalid secret")
     if not TEST_CHANNEL_ID:
         raise HTTPException(status_code=400, detail="TEST_CHANNEL_ID is not configured")
-    res  = supabase.table("events").select("*").execute()
-    text = build_digest_message(res.data or [])
+    events = await fetch_all_events()
+    text   = build_digest_message(events)
     try:
         await bot.send_message(chat_id=TEST_CHANNEL_ID, text=text, parse_mode="Markdown", disable_web_page_preview=True)
         logger.info("Weekly digest sent to test channel")
