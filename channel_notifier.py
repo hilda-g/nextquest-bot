@@ -505,7 +505,7 @@ def build_digest_message(events: list[dict]) -> str:
 
     if not upcoming:
         return (
-            f"📅 Афиша NextQuest · {start_label}–{end_label}\n"
+            f"*📅 Афиша NextQuest · {start_label}–{end_label}*\n"
             f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n\n"
             f"На этой неделе тихо — но скоро будет жарко 🔥\n\n"
             f"🌐 Следи за обновлениями: {SITE_URL}\n"
@@ -515,7 +515,7 @@ def build_digest_message(events: list[dict]) -> str:
     upcoming.sort(key=lambda x: x[0])
 
     lines = [
-        f"📅 Афиша NextQuest · {start_label}–{end_label}",
+        f"*📅 Афиша NextQuest · {start_label}–{end_label}*",
         f"Привет, искатели приключений!",
         f"Вот что ждёт нас на этой неделе:",
         "",
