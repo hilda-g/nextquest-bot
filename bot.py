@@ -298,7 +298,7 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
     lang_line = "\n🗣 " + s(lang, "card_lang_label") + ": " + " · ".join(l.upper() for l in langs) if langs else ""
 
     gcal_url      = build_google_calendar_url(ev)
-    event_url     = f"{SITE_URL}/events/{ev.get('id', '')}"
+    event_url     = f"{SITE_URL}/events/{ev.get('id', '')}?lang=ru"
     remind_url    = f"https://t.me/{BOT_USERNAME}?start=event_{ev.get('id', '')}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
     location_link = f"[📍 {ev['location_city']} · {ev['location_address']}]({maps_url(ev['location_city'], ev['location_address'])})"
@@ -321,7 +321,7 @@ def event_card_text(ev: dict, lang: str = "ru") -> str:
 def event_share_text(ev: dict, lang: str = "ru") -> str:
     date_str   = format_date_ru(ev["date_start"])
     gcal_url   = build_google_calendar_url(ev)
-    event_url  = f"{SITE_URL}/events/{ev['id']}"
+    event_url  = f"{SITE_URL}/events/{ev['id']}?lang=ru"
     remind_url = f"https://t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     organizer  = f"\n{s(lang, 'card_organizer_reg', url=ev['external_url'])}" if ev.get("external_url") else ""
     contact_line = f"\n{s(lang, 'card_organizer_contact', contact=ev['organizer_contacts'])}" if ev.get("organizer_contacts") and not ev.get("external_url") else ""
@@ -1153,7 +1153,7 @@ async def handle_moderation_callback(update: Update, ctx: ContextTypes.DEFAULT_T
                 f"🎉 Твоё событие *{ev['title']}* опубликовано!\n\n"
                 f"Смотри на сайте 👇",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🌐 Открыть страницу события", url=f"{SITE_URL}/events/{event_id}"),
+                    InlineKeyboardButton("🌐 Открыть страницу события", url=f"{SITE_URL}/events/{event_id}?lang=ru"),
                 ]]),
                 parse_mode="Markdown"
             )
@@ -2308,9 +2308,9 @@ async def _cmd_events_inner(message, lang: str = "ru"):
         cat  = CATEGORIES.get(ev["category"], ev["category"])
         keyboard = InlineKeyboardMarkup([[
             InlineKeyboardButton(s(lang, "btn_notify_me"), callback_data=f"subev:{ev['id']}"),
-            InlineKeyboardButton(s(lang, "btn_register"), url=ev.get("external_url") or f"{SITE_URL}/events/{ev['id']}"),
+            InlineKeyboardButton(s(lang, "btn_register"), url=ev.get("external_url") or f"{SITE_URL}/events/{ev['id']}?lang=ru"),
         ]])
-        event_url = f"{SITE_URL}/events/{ev['id']}"
+        event_url = f"{SITE_URL}/events/{ev['id']}?lang=ru"
         await message.reply_text(
             f"{cat} [{ev['title']}]({event_url})\n📍 {ev['location_city']} · 🗓 {date}",
             reply_markup=keyboard,

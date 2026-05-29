@@ -271,7 +271,7 @@ def build_new_event_message(ev: dict) -> str:
     description   = ev.get("description_ru") or ev.get("description", "")
     title         = ev.get("title_ru") or ev.get("title", "")
     gcal_url      = build_google_calendar_url(ev)
-    event_url     = f"{SITE_URL}/events/{ev['id']}"
+    event_url     = f"{SITE_URL}/events/{ev['id']}?lang=ru"
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
@@ -508,7 +508,7 @@ def build_digest_message(events: list[dict]) -> str:
             f"*📅 Афиша NextQuest · {start_label}–{end_label}*\n"
             f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n\n"
             f"На этой неделе тихо — но скоро будет жарко 🔥\n\n"
-            f"🌐 Следи за обновлениями: {SITE_URL}\n"
+            f"🌐 Следи за обновлениями: {SITE_URL}?lang=ru\n"
             f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})"
         )
 
@@ -530,7 +530,7 @@ def build_digest_message(events: list[dict]) -> str:
             emoji    = CATEGORY_EMOJI_RU.get(cat, "🃏")
             cat_name = CATEGORY_NAME_RU.get(cat, "Other")
             title    = ev.get("title_ru") or ev.get("title", "")
-            ev_url   = f"{SITE_URL}/events/{ev['id']}"
+            ev_url   = f"{SITE_URL}/events/{ev['id']}?lang=ru"
             time_str = ev["date_start"][11:16]
             city     = ev.get("location_city", "")
             lines.append(f"[{title}]({ev_url}) · {time_str} · {city}")
@@ -539,7 +539,7 @@ def build_digest_message(events: list[dict]) -> str:
     lines += [
         "——————————————————",
         "",
-        f"🌐 Все события: {SITE_URL}",
+        f"🌐 Все события: {SITE_URL}?lang=ru",
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
     ]
     return "\n".join(lines)
