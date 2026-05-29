@@ -516,7 +516,8 @@ def build_digest_message(events: list[dict]) -> str:
 
     lines = [
         f"📅 Афиша NextQuest · {start_label}–{end_label}",
-        f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:",
+        f"Привет, искатели приключений!",
+        f"Вот что ждёт нас на этой неделе:",
         "",
     ]
 
@@ -532,7 +533,7 @@ def build_digest_message(events: list[dict]) -> str:
             ev_url   = f"{SITE_URL}/events/{ev['id']}"
             time_str = ev["date_start"][11:16]
             city     = ev.get("location_city", "")
-            lines.append(f"[ {emoji} {cat_name} ] [{title}]({ev_url}) · {time_str} · {city}")
+            lines.append(f"[{title}]({ev_url}) · {time_str} · {city}")
         lines.append("")
 
     lines += [
