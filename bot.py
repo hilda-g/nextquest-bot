@@ -2023,9 +2023,16 @@ async def ev_edit_value_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # Photo upload for cover
     if field == "cover_image_url" and update.message.photo:
-        file_id = update.message.photo[-1].file_id
-        ctx.user_data["new_event"]["cover_image_url"] = file_id
-        ctx.user_data["new_event"]["cover_file_id"]   = file_id
+        file = await update.message.photo[-1].get_file()
+        file_bytes = await file.download_as_bytearray()
+        filename = f"covers/{update.effective_user.id}_{int(datetime.now().timestamp())}.jpg"
+        supabase.storage.from_("event-covers").upload(
+            filename,
+            bytes(file_bytes),
+            {"content-type": "image/jpeg"}
+        )
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/event-covers/{filename}"
+        ctx.user_data["new_event"]["cover_image_url"] = public_url
         ctx.user_data.pop("ev_editing_field", None)
         await _save_draft(ctx)
         return await _show_preview(update.message, ctx.user_data["new_event"])
