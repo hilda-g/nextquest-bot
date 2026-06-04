@@ -275,9 +275,7 @@ def build_new_event_message(ev: dict) -> str:
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
-    return (
-        f"[🔹 {title.upper()}]({event_url})\n\n"
-        f"{description}\n\n"
+    footer = (
         f"📅 {date_str}\n"
         f"{maps_link}"
         f"{lang_line}"
@@ -287,6 +285,17 @@ def build_new_event_message(ev: dict) -> str:
         f"[🔔 Подписаться на напоминание]({remind_url})\n"
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
+    )
+    header = f"[🔹 {title.upper()}]({event_url})\n\n"
+    # Reserve space for header + footer + separators, trim description if needed
+    max_desc = 1024 - len(header) - len(footer) - 4  # 4 = "\n\n" between desc and footer
+    if len(description) > max_desc:
+        description = description[:max(0, max_desc - 1)] + "…"
+
+    return (
+        f"{header}"
+        f"{description}\n\n"
+        f"{footer}"
     )
 
 
@@ -542,22 +551,6 @@ def build_digest_message(events: list[dict]) -> str:
         f"🌐 Все события: {SITE_URL}?lang=ru",
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
     ]
-
-    # ── Recruiting posts ──────────────────────────────────────────
-    recruiting = [ev for ev in events if ev.get("is_recruiting")]
-    if recruiting:
-        lines += [
-            "",
-            "*🎯 Ищем игроков*",
-            "",
-        ]
-        for ev in recruiting:
-            title    = ev.get("title_ru") or ev.get("title", "")
-            ev_url   = f"{SITE_URL}/events/{ev['id']}?lang=ru"
-            month    = ev.get("recruiting_month") or "открытый набор"
-            lines.append(f"[{title}]({ev_url}) · {month}")
-        lines.append("")
-
     return "\n".join(lines)
 
 
