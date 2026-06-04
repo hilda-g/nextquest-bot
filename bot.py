@@ -2325,6 +2325,28 @@ async def _cmd_events_inner(message, lang: str = "ru"):
             disable_web_page_preview=True,
         )
 
+    # ── Recruiting posts ──────────────────────────────────────────
+    rec_res = supabase.table("events").select("*")\
+              .eq("status", "published")\
+              .eq("is_recruiting", True)\
+              .is_("deleted_at", "null")\
+              .execute()
+    if rec_res.data:
+        await message.reply_text("🎯 *Ищем игроков*", parse_mode="Markdown", disable_web_page_preview=True)
+        for ev in rec_res.data:
+            title     = ev.get("title_ru") or ev.get("title", "")
+            month     = ev.get("recruiting_month") or "открытый набор"
+            event_url = f"{SITE_URL}/events/{ev['id']}?lang=ru"
+            keyboard  = InlineKeyboardMarkup([[
+                InlineKeyboardButton("🌐 Подробнее", url=event_url),
+            ]])
+            await message.reply_text(
+                f"🎯 [{title}]({event_url})\n📅 {month}",
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+                disable_web_page_preview=True,
+            )
+
 async def cmd_events(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = get_user_lang(update.effective_user.id)
     await _cmd_events_inner(update.message, lang)

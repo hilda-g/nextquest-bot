@@ -542,6 +542,22 @@ def build_digest_message(events: list[dict]) -> str:
         f"🌐 Все события: {SITE_URL}?lang=ru",
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
     ]
+
+    # ── Recruiting posts ──────────────────────────────────────────
+    recruiting = [ev for ev in events if ev.get("is_recruiting")]
+    if recruiting:
+        lines += [
+            "",
+            "*🎯 Ищем игроков*",
+            "",
+        ]
+        for ev in recruiting:
+            title    = ev.get("title_ru") or ev.get("title", "")
+            ev_url   = f"{SITE_URL}/events/{ev['id']}?lang=ru"
+            month    = ev.get("recruiting_month") or "открытый набор"
+            lines.append(f"[{title}]({ev_url}) · {month}")
+        lines.append("")
+
     return "\n".join(lines)
 
 
