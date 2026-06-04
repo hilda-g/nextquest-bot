@@ -275,6 +275,7 @@ def build_new_event_message(ev: dict) -> str:
     remind_url    = f"t.me/{BOT_USERNAME}?start=event_{ev['id']}"
     bot_start_url = f"https://t.me/{BOT_USERNAME}?start=start"
 
+    header = f"[🔹 {title.upper()}]({event_url})\n\n"
     footer = (
         f"📅 {date_str}\n"
         f"{maps_link}"
@@ -286,17 +287,15 @@ def build_new_event_message(ev: dict) -> str:
         f"[📅 Добавить в Google Календарь]({gcal_url})\n"
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!]({bot_start_url})"
     )
-    header = f"[🔹 {title.upper()}]({event_url})\n\n"
-    # Reserve space for header + footer + separators, trim description if needed
-    max_desc = 1024 - len(header) - len(footer) - 4  # 4 = "\n\n" between desc and footer
-    if len(description) > max_desc:
-        description = description[:max(0, max_desc - 1)] + "…"
+    # Build without description to know how much space is left
+    shell = header + "\n\n" + footer
+    available = 1024 - len(shell)
+    if available < 0:
+        available = 0
+    if len(description) > available:
+        description = description[:available].rstrip() + "…"
 
-    return (
-        f"{header}"
-        f"{description}\n\n"
-        f"{footer}"
-    )
+    return header + description + "\n\n" + footer
 
 
 
