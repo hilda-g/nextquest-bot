@@ -500,45 +500,25 @@ def build_digest_message(events: list[dict]) -> str:
     week_end = today + timedelta(days=6)
 
     upcoming = []
-    recruiting = []
     for ev in events:
-        if ev.get("is_promo"):
-            continue
-        if ev.get("is_recruiting"):
-            recruiting.append(ev)
-            continue
         try:
             d = dt.fromisoformat(ev["date_start"][:16]).date()
         except Exception:
             continue
         if today <= d <= week_end:
-            upcoming.append((d, ev))
+            upcoming.append((dt.fromisoformat(ev["date_start"][:16]), ev))
 
     start_label = f"{today.day} {MONTHS_RU[today.month - 1]}"
     end_label   = f"{week_end.day} {MONTHS_RU[week_end.month - 1]}"
 
     if not upcoming:
-        lines_empty = [
-            f"*📅 Афиша NextQuest · {start_label}–{end_label}*",
-            f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:",
-            "",
-            "На этой неделе тихо — но скоро будет жарко 🔥",
-        ]
-        if recruiting:
-            lines_empty.append("")
-            lines_empty.append("*🎯 Ищем игроков:*")
-            for ev in recruiting:
-                title  = ev.get("title_ru") or ev.get("title", "")
-                ev_url = f"{SITE_URL}/events/{ev['id']}?lang=ru"
-                city   = ev.get("location_city", "")
-                period = ev.get("recruiting_month") or "Открытый набор"
-                lines_empty.append(f"[{title}]({ev_url}) · {period} · {city}")
-        lines_empty += [
-            "",
-            f"🌐 Следи за обновлениями: {SITE_URL}?lang=ru",
-            f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
-        ]
-        return "\n".join(lines_empty)
+        return (
+            f"*📅 Афиша NextQuest · {start_label}–{end_label}*\n"
+            f"Привет, искатели приключений! Вот что ждёт нас на этой неделе:\n\n"
+            f"На этой неделе тихо — но скоро будет жарко 🔥\n\n"
+            f"🌐 Следи за обновлениями: {SITE_URL}?lang=ru\n"
+            f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})"
+        )
 
     upcoming.sort(key=lambda x: x[0])
 
@@ -549,7 +529,7 @@ def build_digest_message(events: list[dict]) -> str:
         "",
     ]
 
-    for day_date, grp in groupby(upcoming, key=lambda x: x[0]):
+    for day_date, grp in groupby(upcoming, key=lambda x: x[0].date()):
         day_name = WEEKDAYS_RU_FULL[day_date.weekday()]
         day_num  = f"{day_date.day} {MONTHS_RU[day_date.month - 1]}"
         lines.append(f"*{day_name}, {day_num}*")
@@ -567,19 +547,6 @@ def build_digest_message(events: list[dict]) -> str:
     lines += [
         "——————————————————",
         "",
-    ]
-
-    if recruiting:
-        lines.append("*🎯 Ищем игроков:*")
-        for ev in recruiting:
-            title  = ev.get("title_ru") or ev.get("title", "")
-            ev_url = f"{SITE_URL}/events/{ev['id']}?lang=ru"
-            city   = ev.get("location_city", "")
-            period = ev.get("recruiting_month") or "Открытый набор"
-            lines.append(f"[{title}]({ev_url}) · {period} · {city}")
-        lines.append("")
-
-    lines += [
         f"🌐 Все события: {SITE_URL}?lang=ru",
         f"⭐️ Хочешь добавить своё событие? [Напиши боту!](https://t.me/{BOT_USERNAME})",
     ]
